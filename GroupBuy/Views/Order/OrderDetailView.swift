@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct JoinOrderDetailView: View {
+struct OrderDetailView: View {
     let order: GroupBuyOrder
     @ObservedObject var viewModel: GroupBuyViewModel
     @Environment(\.dismiss) private var dismiss
@@ -168,5 +168,5 @@ struct JoinOrderDetailView: View {
         createdAt: Date()
     )
     
-    return JoinOrderDetailView(order: order, viewModel: GroupBuyViewModel())
+    OrderDetailView(order: order, viewModel: GroupBuyViewModel())
 }

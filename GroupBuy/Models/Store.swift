@@ -43,6 +43,7 @@ struct Store: Identifiable, Codable {
     private var _category: CodableMKPointOfInterestCategory
     var description: String
     var isCustom: Bool = false
+    var isPinned: Bool = false
     
     var category: MKPointOfInterestCategory? {
         get { _category.category }
@@ -50,11 +51,11 @@ struct Store: Identifiable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, address, phoneNumber, photos, imageURL, description, isCustom
+        case id, name, address, phoneNumber, photos, imageURL, description, isCustom, isPinned
         case _category = "category"
     }
     
-    init(id: UUID = UUID(), name: String, address: String, phoneNumber: String, photos: [URL]? = nil, imageURL: String, category: MKPointOfInterestCategory? = nil, description: String, isCustom: Bool = false) {
+    init(id: UUID = UUID(), name: String, address: String, phoneNumber: String, photos: [URL]? = nil, imageURL: String, category: MKPointOfInterestCategory? = nil, description: String, isCustom: Bool = false, isPinned: Bool = false) {
         self.id = id
         self.name = name
         self.address = address
@@ -64,6 +65,7 @@ struct Store: Identifiable, Codable {
         self._category = CodableMKPointOfInterestCategory(category)
         self.description = description
         self.isCustom = isCustom
+        self.isPinned = isPinned
     }
     
     // 實例方法：獲取圖示

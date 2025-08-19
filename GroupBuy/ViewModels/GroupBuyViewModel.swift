@@ -26,6 +26,15 @@ class GroupBuyViewModel: ObservableObject {
         stores.remove(atOffsets: offsets)
     }
     
+    func toggleStorePin(_ store: Store) {
+        // 使用 withAnimation 確保狀態變更時有動畫
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            if let index = stores.firstIndex(where: { $0.id == store.id }) {
+                stores[index].isPinned.toggle()
+            }
+        }
+    }
+    
     func createGroupBuyOrder(_ order: GroupBuyOrder) {
         activeOrders.append(order)
     }

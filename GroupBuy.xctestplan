@@ -1,0 +1,44 @@
+{
+  "configurations" : [
+    {
+      "id" : "75EC3BB9-F4AB-4E49-829C-F145F92941F8",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "language" : "zh-Hant",
+    "locationScenario" : {
+      "identifier" : "Tokyo, Japan",
+      "referenceType" : "built-in"
+    },
+    "performanceAntipatternCheckerEnabled" : true,
+    "region" : "TW",
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:GroupBuy.xcodeproj",
+      "identifier" : "B344C16B2E5086CF00BF0086",
+      "name" : "GroupBuy"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:GroupBuy.xcodeproj",
+        "identifier" : "B344C1792E5086D000BF0086",
+        "name" : "GroupBuyTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:GroupBuy.xcodeproj",
+        "identifier" : "B344C1832E5086D000BF0086",
+        "name" : "GroupBuyUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -98,46 +98,7 @@ struct CreateOrderView: View {
     }
 }
 
-struct StoreCardView: View {
-    let store: Store
-    let isSelected: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 8) {
-                Image(systemName: store.imageURL)
-                    .font(.title2)
-                    .foregroundColor(.primary)
-                
-                Text(store.name)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                
-                Text(store.categoryDisplayName)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(store.description)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, minHeight: 120)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
-                    )
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
+// MARK: - StoreCardView 已移至 StoreComponents.swift
 
 #Preview {
     CreateOrderView(viewModel: GroupBuyViewModel())

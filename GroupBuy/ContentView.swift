@@ -8,10 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = GroupBuyViewModel()
-
     var body: some View {
-        HomeView(viewModel: viewModel)
+        MainTabView()
     }
 }
 

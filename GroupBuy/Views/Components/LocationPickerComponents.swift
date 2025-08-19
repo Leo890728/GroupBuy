@@ -9,90 +9,6 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-// MARK: - Search Bar View
-struct SearchBarView: View {
-    @Binding var searchText: String
-    @ObservedObject var speechManager: SpeechRecognitionManager
-    let isSearching: Bool
-    let onSearchSubmit: () -> Void
-    let onSearchTextChange: (String) -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // 搜尋框
-            HStack(spacing: 12) {
-                // 放大鏡圖示
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.primary)
-                    .font(.system(size: 18))
-                
-                // 輸入框
-                TextField("輸入地點", text: $searchText)
-                    .foregroundColor(.primary)
-                    .onSubmit {
-                        print("用戶提交搜尋: '\(searchText)'")
-                        onSearchSubmit()
-                    }
-                    .onChange(of: searchText) { newValue in
-                        print("搜尋文字變更: '\(newValue)'")
-                        onSearchTextChange(newValue)
-                    }
-                
-                Spacer()
-                
-                // 語音輸入按鈕
-                Button(action: {
-                    speechManager.toggleRecording()
-                }) {
-                    VoiceRecordingButton(isRecording: speechManager.isRecording)
-                }
-                .disabled(isSearching)
-                
-                // 搜尋進度指示器
-                if isSearching {
-                    ProgressView()
-                        .tint(.primary)
-                        .progressViewStyle(.circular)
-                        .scaleEffect(0.8)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(UIColor.systemGray5))
-            .cornerRadius(25)
-            
-            // 錄音狀態指示器
-            if speechManager.isRecording {
-                HStack {
-                    Image(systemName: "waveform")
-                        .foregroundColor(.red)
-                        .font(.system(size: 14))
-                    Text("正在聆聽...")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
-        }
-        .padding(.horizontal)
-        .onReceive(speechManager.$recognizedText) { text in
-            print("收到語音識別文字: '\(text)', 是否正在錄音: \(speechManager.isRecording)")
-            if !text.isEmpty && speechManager.isRecording {
-                searchText = text
-                // 語音識別過程中即時更新搜尋文字
-                onSearchTextChange(text)
-            }
-        }
-
-        Divider()
-            .background(Color.gray)
-            .frame(height: 2)
-            .padding(.horizontal, 16)
-    }
-}
-
 // MARK: - Location Status View
 struct LocationStatusView: View {
     let isLocationAuthorized: Bool
@@ -110,7 +26,12 @@ struct LocationStatusView: View {
                 
                 if let onRequestPermission = onRequestPermission {
                     Button("允許定位") {
-                        onRequestPermission()
+                        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(settingsURL)
+                        } else {
+                            // 如果無法打開設定，則使用原來的權限請求方法
+                            onRequestPermission()
+                        }
                     }
                     .font(.caption)
                     .foregroundColor(.blue)
@@ -133,6 +54,7 @@ struct SearchResultsView: View {
     @Binding var selectedAddress: String
     @Binding var isPresented: Bool
     let isLocationAuthorized: Bool
+    let isSearchFieldFocused: FocusState<Bool>.Binding
     let onLocationRequest: () -> Void
     let onLocationSelect: (MKMapItem) -> Void
 
@@ -164,21 +86,13 @@ struct SearchResultsView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(Color(UIColor.systemGroupedBackground))
+                .dismissKeyboardOnScroll(focus: isSearchFieldFocused)
             } else {
                 EmptySearchView()
             }
         } else if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
             // 有搜尋文字但沒有結果且不在搜尋中時顯示無結果
             NoResultsView()
-        } else if isSearching {
-            // 搜尋中顯示載入畫面
-            VStack {
-                Spacer()
-                ProgressView("搜尋中...")
-                    .progressViewStyle(.circular)
-                    .scaleEffect(1.2)
-                Spacer()
-            }
         } else {
             // 有搜尋結果時顯示列表
             List {
@@ -213,12 +127,6 @@ struct SearchResultsView: View {
                                 Text("附近的店家")
                                     .foregroundColor(.primary)
                                 Spacer()
-                                if isSearching {
-                                    ProgressView()
-                                        .tint(.blue)
-                                        .progressViewStyle(.circular)
-                                        .scaleEffect(0.8)
-                                }
                             }
                         }
                         .buttonStyle(.plain)
@@ -230,11 +138,21 @@ struct SearchResultsView: View {
                 // 搜尋結果放在名為「地圖地點」的 Section
                 if !searchResults.isEmpty {
                     Section(header: Text("地圖地點").font(.headline)) {
-                        ForEach(searchResults, id: \.self) { item in
-                            LocationRowView(item: item, onSelect: onLocationSelect)
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .padding(.vertical, 4)
+                        if isSearching {
+                            HStack {
+                                Spacer()
+                                ProgressView("搜尋中...")
+                                    .progressViewStyle(.circular)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                        } else {
+                            ForEach(searchResults, id: \.self) { item in
+                                LocationRowView(item: item, onSelect: onLocationSelect)
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                                    .padding(.vertical, 4)
+                            }
                         }
                     }
                 }
@@ -242,6 +160,7 @@ struct SearchResultsView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color(UIColor.systemGroupedBackground))
+            .dismissKeyboardOnScroll(focus: isSearchFieldFocused)
         }
     }
 }
@@ -338,71 +257,6 @@ struct NavigationTitleView: View {
         VStack(spacing: 0) {
             Text("選擇地點")
                 .font(.headline)
-        }
-    }
-}
-
-// MARK: - Voice Recording Button
-struct VoiceRecordingButton: View {
-    let isRecording: Bool
-    @State private var animationScale: CGFloat = 1.0
-    @State private var pulseOpacity: Double = 0.0
-    
-    var body: some View {
-        ZStack {
-            // 外圍的脈衝圓環動畫
-            if isRecording {
-                Circle()
-                    .fill(Color.red.opacity(0.3))
-                    .scaleEffect(animationScale)
-                    .opacity(pulseOpacity)
-                    .animation(
-                        .easeInOut(duration: 1.0)
-                        .repeatForever(autoreverses: true),
-                        value: animationScale
-                    )
-                
-                Circle()
-                    .fill(Color.red.opacity(0.2))
-                    .scaleEffect(animationScale * 1.3)
-                    .opacity(pulseOpacity * 0.7)
-                    .animation(
-                        .easeInOut(duration: 1.2)
-                        .repeatForever(autoreverses: true),
-                        value: animationScale
-                    )
-            }
-            
-            // 麥克風圖示
-            Image(systemName: "mic.fill")
-                .foregroundColor(isRecording ? .red : .primary)
-                .font(.system(size: 18, weight: .medium))
-                .scaleEffect(isRecording ? 1.1 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isRecording)
-        }
-        .frame(width: 32, height: 32)
-        .onChange(of: isRecording) { newValue in
-            if newValue {
-                startListeningAnimation()
-            } else {
-                stopListeningAnimation()
-            }
-        }
-    }
-    
-    private func startListeningAnimation() {
-        withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-            animationScale = 1.4
-        }
-        withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
-            pulseOpacity = 0.8
-        }
-    }
-    
-    private func stopListeningAnimation() {
-        withAnimation(.easeOut(duration: 0.3)) {
-            animationScale = 1.0
-            pulseOpacity = 0.0
         }
     }
 }

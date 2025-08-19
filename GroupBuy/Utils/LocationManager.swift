@@ -38,7 +38,15 @@ class LocationManager: NSObject, ObservableObject {
             locationManager.requestWhenInUseAuthorization()
         case .denied, .restricted:
             print("位置權限被拒絕，需要到設定開啟")
-        default:
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("已有位置權限，重新檢查狀態")
+            // 重新檢查當前的授權狀態，以防用戶在設定中修改了權限
+            let currentStatus = locationManager.authorizationStatus
+            if currentStatus != authorizationStatus {
+                authorizationStatus = currentStatus
+                handleAuthorizationStatus(currentStatus)
+            }
+        @unknown default:
             break
         }
     }

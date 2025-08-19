@@ -9,7 +9,7 @@ import SwiftUI
 import PhotosUI
 import MapKit
 
-struct CustomStoreView: View {
+struct AddStoreView: View {
     // MARK: - Properties
     @ObservedObject var viewModel: GroupBuyViewModel
     @Environment(\.dismiss) private var dismiss
@@ -32,23 +32,13 @@ struct CustomStoreView: View {
     @State private var alertMessage = ""
     @State private var isAutoFilled = false
     
-    // MARK: - Constants
-    private let iconOptions: [(category: MKPointOfInterestCategory?, displayName: String)] = [
-        (nil, "自訂"),
-        (.restaurant, Store.categoryDisplayName(for: .restaurant)),
-        (.cafe, Store.categoryDisplayName(for: .cafe)),
-        (.bakery, Store.categoryDisplayName(for: .bakery)),
-        (.store, Store.categoryDisplayName(for: .store)),
-        (.foodMarket, Store.categoryDisplayName(for: .foodMarket))
-    ]
+
     
     var body: some View {
         NavigationView {
             Form {
                 storeInformationSection
                 storePhotosSection
-                iconSelectionSection
-                previewSection
             }
             .navigationTitle("自訂商店")
             .navigationBarTitleDisplayMode(.inline)
@@ -130,13 +120,75 @@ struct CustomStoreView: View {
     
     // MARK: - Category Picker
     private var categoryPicker: some View {
-        Picker("分類", selection: $selectedCategory) {
-            Text("自訂").tag(nil as MKPointOfInterestCategory?)
-            ForEach(Store.commonCategories, id: \.self) { category in
-                Text(Store.categoryDisplayName(for: category))
-                    .tag(category as MKPointOfInterestCategory?)
+        Menu {
+            // 自訂選項
+            Button(action: {
+                selectedCategory = nil
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: Store.spotlightIcon(for: nil))
+                        .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(Store.spotlightColor(for: nil))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Text("自訂")
+                        .font(.body)
+                    Spacer()
+                }
             }
+            
+            // 其他分類選項
+            ForEach(Store.commonCategories, id: \.self) { category in
+                Button(action: {
+                    selectedCategory = category
+                }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: Store.spotlightIcon(for: category))
+                            .foregroundColor(.white)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 32, height: 32)
+                            .background(Store.spotlightColor(for: category))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        Text(Store.categoryDisplayName(for: category))
+                            .font(.body)
+                        Spacer()
+                    }
+                }
+            }
+        } label: {
+            HStack {
+                Text("分類")
+                    .foregroundColor(.primary)
+                Spacer()
+                HStack(spacing: 8) {
+                    if let selectedCategory = selectedCategory {
+                        Image(systemName: Store.spotlightIcon(for: selectedCategory))
+                            .foregroundColor(.white)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 24, height: 24)
+                            .background(Store.spotlightColor(for: selectedCategory))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Text(Store.categoryDisplayName(for: selectedCategory))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Image(systemName: Store.spotlightIcon(for: nil))
+                            .foregroundColor(.white)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 24, height: 24)
+                            .background(Store.spotlightColor(for: nil))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Text("自訂")
+                            .foregroundColor(.secondary)
+                    }
+                    Image(systemName: "chevron.up.chevron.down")
+                        .foregroundColor(.secondary)
+                        .font(.caption2)
+                }
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PlainButtonStyle())
     }
 
     
@@ -218,79 +270,6 @@ struct CustomStoreView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer()
-        }
-    }
-    
-    // MARK: - Icon Selection Section
-    private var iconSelectionSection: some View {
-        Section("選擇圖示") {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
-                ForEach(iconOptions, id: \.displayName) { option in
-                    iconOptionButton(for: option)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(Color.clear)
-    }
-    
-    // MARK: - Icon Option Button
-    private func iconOptionButton(for option: (category: MKPointOfInterestCategory?, displayName: String)) -> some View {
-        Button(action: {
-            selectedCategory = option.category
-        }) {
-            VStack(spacing: 8) {
-                // Spotlight 風格圖示
-                Image(systemName: Store.spotlightIcon(for: option.category))
-                    .foregroundColor(.white)
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 28, height: 28)
-                    .background(Store.spotlightColor(for: option.category))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                
-                Text(option.displayName)
-                    .font(.caption)
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(selectedCategory == option.category ? Color.blue.opacity(0.1) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selectedCategory == option.category ? Color.blue : Color.clear, lineWidth: 1)
-            )
-        }
-    }
-    
-    // MARK: - Preview Section
-    private var previewSection: some View {
-        Section(Store.categoryDisplayName(for: selectedCategory)) {
-            HStack {
-                // Spotlight 風格圖示預覽
-                Image(systemName: Store.spotlightIcon(for: selectedCategory))
-                    .foregroundColor(.white)
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 28, height: 28)
-                    .background(Store.spotlightColor(for: selectedCategory))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                
-                VStack(alignment: .leading) {
-                    Text(storeName.isEmpty ? "商店名稱" : storeName)
-                        .font(.headline)
-                    Text(storeDescription.isEmpty ? "商店描述" : storeDescription)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-            }
-            .padding()
-            .cornerRadius(8)
         }
     }
     
@@ -387,5 +366,5 @@ struct CustomStoreView: View {
 
 // MARK: - Preview
 #Preview {
-    CustomStoreView(viewModel: GroupBuyViewModel())
+    AddStoreView(viewModel: GroupBuyViewModel())
 }

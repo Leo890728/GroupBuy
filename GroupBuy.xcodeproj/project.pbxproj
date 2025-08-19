@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		B30C43FB2E5416B0006F4985 /* .gitignore in Sources */ = {isa = PBXBuildFile; fileRef = B30C43FA2E5416AB006F4985 /* .gitignore */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		B344C17B2E5086D000BF0086 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,7 +25,6 @@
 
 /* Begin PBXFileReference section */
 		B30C43EC2E52DC3E006F4985 /* GroupBuy.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = GroupBuy.xctestplan; sourceTree = "<group>"; };
-		B30C43FA2E5416AB006F4985 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = .gitignore; sourceTree = "<group>"; };
 		B344C16C2E5086CF00BF0086 /* GroupBuy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GroupBuy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B344C17A2E5086D000BF0086 /* GroupBuyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroupBuyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B344C1842E5086D000BF0086 /* GroupBuyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroupBuyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,7 +89,6 @@
 		B344C1632E5086CF00BF0086 = {
 			isa = PBXGroup;
 			children = (
-				B30C43FA2E5416AB006F4985 /* .gitignore */,
 				B30C43EC2E52DC3E006F4985 /* GroupBuy.xctestplan */,
 				B344C16E2E5086CF00BF0086 /* GroupBuy */,
 				B344C17D2E5086D000BF0086 /* GroupBuyTests */,
@@ -257,7 +251,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B30C43FB2E5416B0006F4985 /* .gitignore in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

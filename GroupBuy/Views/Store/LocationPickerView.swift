@@ -27,6 +27,7 @@ struct LocationPickerView: View {
     
     // MARK: - State Properties
     @State private var searchText = ""
+    @FocusState private var isSearchFieldFocused: Bool
     
     var body: some View {
         NavigationStack {
@@ -34,15 +35,18 @@ struct LocationPickerView: View {
                 SearchBarView(
                     searchText: $searchText,
                     speechManager: speechManager,
+                    placeholder: "輸入地點",
                     isSearching: searchManager.isSearching,
                     onSearchSubmit: {
                         searchManager.searchPlaces()
+                        isSearchFieldFocused = false
                     },
                     onSearchTextChange: { newValue in
                         searchText = newValue
                         searchManager.handleSearchTextChange(newValue)
                     }
                 )
+                .focused($isSearchFieldFocused)
                 
                 LocationStatusView(
                     isLocationAuthorized: locationManager.isLocationAuthorized,
@@ -58,6 +62,7 @@ struct LocationPickerView: View {
                     selectedAddress: $selectedAddress,
                     isPresented: $isPresented,
                     isLocationAuthorized: locationManager.isLocationAuthorized,
+                    isSearchFieldFocused: $isSearchFieldFocused,
                     onLocationRequest: {
                         searchManager.searchNearbyPlaces()
                     },
@@ -83,9 +88,23 @@ struct LocationPickerView: View {
                 searchManager.setLocationManager(locationManager)
                 setupSpeechRecognitionCallback()
                 
+                // 如果已有選定的地址，將其設置到搜索框中
+                if !selectedAddress.isEmpty {
+                    searchText = selectedAddress
+                    searchManager.handleSearchTextChange(selectedAddress)
+                }
+                
                 // 主動檢查並請求位置權限
                 if locationManager.authorizationStatus == .notDetermined {
                     print("首次啟動，請求位置權限")
+                    locationManager.requestLocationPermission()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                // 當 app 重新進入前台時，重新檢查權限狀態
+                print("App 重新進入前台，檢查權限狀態")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    // 稍微延遲一下再檢查，確保系統有時間更新權限狀態
                     locationManager.requestLocationPermission()
                 }
             }
