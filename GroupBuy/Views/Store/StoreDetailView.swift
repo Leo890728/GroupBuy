@@ -65,7 +65,7 @@ struct StoreDetailView: View {
                 StoreMapView(store: store)
             }
             .sheet(isPresented: $showingEditStore) {
-                AddStoreView(viewModel: viewModel, storeToEdit: store)
+                StoreFormView(viewModel: viewModel, storeToEdit: store)
             }
         }
     }

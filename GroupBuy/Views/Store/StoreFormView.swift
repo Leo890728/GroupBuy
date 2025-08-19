@@ -1,5 +1,5 @@
 //
-//  CustomStoreView.swift
+//  StoreFormView.swift
 //  GroupBuy
 //
 //  Created by 林政佑 on 2025/8/16.
@@ -9,7 +9,7 @@ import SwiftUI
 import PhotosUI
 import MapKit
 
-struct AddStoreView: View {
+struct StoreFormView: View {
     // MARK: - Properties
     @ObservedObject var viewModel: GroupBuyViewModel
     @Environment(\.dismiss) private var dismiss
@@ -29,8 +29,7 @@ struct AddStoreView: View {
     // MARK: - Photo State
     @State private var storePhotoItems: [PhotosPickerItem] = []
     @State private var storePhotos: [UIImage] = []
-    @State private var existingPhotos: [UIImage] = [] // 從編輯模式載入的現有照片
-    @State private var newPhotos: [UIImage] = [] // 新選擇的照片
+    @State private var existingPhotosCount: Int = 0 // 追蹤從編輯模式載入的現有照片數量
     private let maxStorePhotos: Int = 5
     
     // MARK: - UI State
@@ -38,7 +37,6 @@ struct AddStoreView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isAutoFilled = false
-    @State private var isLoading = false
     
     // MARK: - Initializer
     init(viewModel: GroupBuyViewModel, storeToEdit: Store? = nil) {
@@ -227,23 +225,17 @@ struct AddStoreView: View {
         HStack {
             Text("商店圖片")
             Spacer()
-            
-            if isLoading {
-                ProgressView()
-                    .scaleEffect(0.8)
-            } else {
-                PhotosPicker(
-                    selection: $storePhotoItems,
-                    maxSelectionCount: max(0, maxStorePhotos - existingPhotos.count),
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    Image(systemName: "plus.circle")
-                }
-                .disabled(storePhotos.count >= maxStorePhotos)
-                .onChange(of: storePhotoItems) { _, newItems in
-                    loadSelectedPhotos(from: newItems)
-                }
+            PhotosPicker(
+                selection: $storePhotoItems,
+                maxSelectionCount: max(0, maxStorePhotos - existingPhotosCount),
+                matching: .images,
+                photoLibrary: .shared()
+            ) {
+                Image(systemName: "plus.circle")
+            }
+            .disabled(storePhotos.count >= maxStorePhotos)
+            .onChange(of: storePhotoItems) { _, newItems in
+                loadSelectedPhotos(from: newItems)
             }
         }
     }
@@ -315,7 +307,7 @@ struct AddStoreView: View {
                         addCustomStore()
                     }
                 }
-                .disabled(storeName.isEmpty || isLoading)
+                .disabled(storeName.isEmpty)
             }
         }
     }
@@ -370,8 +362,8 @@ struct AddStoreView: View {
             }
             
             await MainActor.run {
-                existingPhotos = images
-                updateCombinedPhotos()
+                storePhotos = images
+                existingPhotosCount = images.count // 記錄現有照片數量
             }
         }
     }
@@ -455,53 +447,41 @@ struct AddStoreView: View {
     
     /// 載入選擇的照片
     private func loadSelectedPhotos(from items: [PhotosPickerItem]) {
-        // 檢查是否會超過限制
-        let availableSlots = maxStorePhotos - existingPhotos.count
-        let itemsToProcess = Array(items.prefix(availableSlots))
-        
         Task {
-            var images: [UIImage] = []
-            
-            await MainActor.run {
-                isLoading = true
-            }
-            
-            for item in itemsToProcess {
+            var newImages: [UIImage] = []
+            for item in items {
                 do {
                     if let data = try await item.loadTransferable(type: Data.self),
                        let uiImage = UIImage(data: data) {
-                        images.append(uiImage)
+                        newImages.append(uiImage)
                     }
                 } catch {
                     print("載入照片失敗: \(error.localizedDescription)")
-                    await MainActor.run {
-                        alertMessage = "載入照片失敗，請重試"
-                        showingAlert = true
-                    }
                 }
             }
 
             await MainActor.run {
-                isLoading = false
-                newPhotos = images
-                updateCombinedPhotos()
+                // 取得現有照片（前 existingPhotosCount 張）
+                let existingPhotos = Array(storePhotos.prefix(existingPhotosCount))
                 
-                // 更新 PhotosPicker 選擇項目
-                storePhotoItems = itemsToProcess
+                // 合併現有照片和新選擇的照片
+                storePhotos = existingPhotos + newImages
+                
+                // 確保不超過最大數量限制
+                if storePhotos.count > maxStorePhotos {
+                    let maxNewPhotos = maxStorePhotos - existingPhotosCount
+                    let trimmedNewImages = Array(newImages.prefix(maxNewPhotos))
+                    storePhotos = existingPhotos + trimmedNewImages
+                    storePhotoItems = Array(storePhotoItems.prefix(maxNewPhotos))
+                }
             }
         }
     }
     
-    /// 更新合併後的照片陣列
-    private func updateCombinedPhotos() {
-        storePhotos = existingPhotos + newPhotos
-    }
-    
     /// 移除指定索引的照片
     private func removePhoto(at index: Int) {
-        // 判斷是現有照片還是新選擇的照片
-        if index < existingPhotos.count {
-            // 移除現有照片
+        if index < existingPhotosCount {
+            // 刪除現有照片
             if isEditMode,
                let originalPhotos = storeToEdit?.photos,
                index < originalPhotos.count {
@@ -512,85 +492,74 @@ struct AddStoreView: View {
                     print("刪除照片文件失敗: \(error.localizedDescription)")
                 }
             }
-            existingPhotos.remove(at: index)
+            existingPhotosCount -= 1
         } else {
-            // 移除新選擇的照片
-            let newPhotoIndex = index - existingPhotos.count
-            if newPhotoIndex < newPhotos.count && newPhotoIndex < storePhotoItems.count {
-                newPhotos.remove(at: newPhotoIndex)
+            // 刪除新選擇的照片
+            let newPhotoIndex = index - existingPhotosCount
+            if storePhotoItems.indices.contains(newPhotoIndex) {
                 storePhotoItems.remove(at: newPhotoIndex)
             }
         }
         
-        // 更新合併後的照片陣列
-        updateCombinedPhotos()
+        // 從顯示陣列中移除
+        if storePhotos.indices.contains(index) {
+            storePhotos.remove(at: index)
+        }
     }
     
     /// 新增自訂商店
     private func addCustomStore() {
-        isLoading = true
+        // 將照片保存為本地文件
+        let photoURLs = savePhotosToLocalFiles(storePhotos)
         
-        Task {
-            let photoURLs = savePhotosToLocalFiles(storePhotos)
-            
-            let customStore = Store(
-                name: storeName,
-                address: storeAddress,
-                phoneNumber: storePhoneNumber,
-                website: storeWebsite,
-                photos: photoURLs.isEmpty ? nil : photoURLs,
-                imageURL: Store.spotlightIcon(for: selectedCategory),
-                category: selectedCategory,
-                description: storeDescription,
-                isCustom: true
-            )
-            
-            await MainActor.run {
-                viewModel.addCustomStore(customStore)
-                showSuccessAndDismiss(message: "商店新增成功！")
-            }
-        }
+        let customStore = Store(
+            name: storeName,
+            address: storeAddress,
+            phoneNumber: storePhoneNumber,
+            website: storeWebsite,
+            photos: photoURLs.isEmpty ? nil : photoURLs,
+            imageURL: Store.spotlightIcon(for: selectedCategory),
+            category: selectedCategory,
+            description: storeDescription,
+            isCustom: true
+        )
+        
+        viewModel.addCustomStore(customStore)
+        showSuccessAndDismiss(message: "商店新增成功！")
     }
     
     /// 更新現有商店
     private func updateStore() {
         guard let originalStore = storeToEdit else { return }
         
-        isLoading = true
-        
-        Task {
-            // 刪除舊的照片文件（如果存在）
-            if let oldPhotoURLs = originalStore.photos {
-                deleteOldPhotoFiles(oldPhotoURLs)
-            }
-            
-            // 將新照片保存為本地文件
-            let photoURLs = savePhotosToLocalFiles(storePhotos)
-            
-            let updatedStore = Store(
-                id: originalStore.id,
-                name: storeName,
-                address: storeAddress,
-                phoneNumber: storePhoneNumber,
-                website: storeWebsite,
-                photos: photoURLs.isEmpty ? nil : photoURLs,
-                imageURL: Store.spotlightIcon(for: selectedCategory),
-                category: selectedCategory,
-                description: storeDescription,
-                isCustom: originalStore.isCustom,
-                isPinned: originalStore.isPinned
-            )
-            
-            await MainActor.run {
-                viewModel.updateStore(updatedStore)
-                showSuccessAndDismiss(message: "商店更新成功！")
-            }
+        // 刪除舊的照片文件（如果存在）
+        if let oldPhotoURLs = originalStore.photos {
+            deleteOldPhotoFiles(oldPhotoURLs)
         }
+        
+        // 將新照片保存為本地文件
+        let photoURLs = savePhotosToLocalFiles(storePhotos)
+        
+        let updatedStore = Store(
+            id: originalStore.id,
+            name: storeName,
+            address: storeAddress,
+            phoneNumber: storePhoneNumber,
+            website: storeWebsite,
+            photos: photoURLs.isEmpty ? nil : photoURLs,
+            imageURL: Store.spotlightIcon(for: selectedCategory),
+            category: selectedCategory,
+            description: storeDescription,
+            isCustom: originalStore.isCustom,
+            isPinned: originalStore.isPinned
+        )
+        
+        viewModel.updateStore(updatedStore)
+        showSuccessAndDismiss(message: "商店更新成功！")
     }
     
     /// 顯示成功訊息並關閉視圖
     private func showSuccessAndDismiss(message: String) {
-        isLoading = false
         alertMessage = message
         showingAlert = true
         
@@ -605,9 +574,9 @@ struct AddStoreView: View {
 
 // MARK: - Preview
 #Preview("新增商店") {
-    AddStoreView(viewModel: GroupBuyViewModel())
+    StoreFormView(viewModel: GroupBuyViewModel())
 }
 
 #Preview("編輯商店") {
-    AddStoreView(viewModel: GroupBuyViewModel(), storeToEdit: Store.sampleStores[0])
+    StoreFormView(viewModel: GroupBuyViewModel(), storeToEdit: Store.sampleStores[0])
 }

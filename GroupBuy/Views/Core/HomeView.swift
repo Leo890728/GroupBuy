@@ -38,7 +38,7 @@ struct HomeView: View {
                         CreateOrderView(viewModel: viewModel)
                     }
             .sheet(isPresented: $showingCustomStore) {
-                AddStoreView(viewModel: viewModel)
+                StoreFormView(viewModel: viewModel)
             }
         }
     }

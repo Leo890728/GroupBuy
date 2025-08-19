@@ -47,7 +47,7 @@ struct StoreListView: View {
                 }
             }
             .sheet(isPresented: $showingCustomStore) {
-                AddStoreView(viewModel: viewModel)
+                StoreFormView(viewModel: viewModel)
             }
             .onReceive(speechManager.$recognizedText) { text in
                 if !text.isEmpty {
