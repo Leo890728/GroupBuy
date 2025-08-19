@@ -114,7 +114,7 @@ struct StoreCardView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 
-                Text(store.category.rawValue)
+                Text(store.categoryDisplayName)
                     .font(.caption)
                     .foregroundColor(.secondary)
                 

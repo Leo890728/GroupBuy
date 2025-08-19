@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B30C43FB2E5416B0006F4985 /* .gitignore in Sources */ = {isa = PBXBuildFile; fileRef = B30C43FA2E5416AB006F4985 /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B344C17B2E5086D000BF0086 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,14 +28,29 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B30C43EC2E52DC3E006F4985 /* GroupBuy.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = GroupBuy.xctestplan; sourceTree = "<group>"; };
+		B30C43FA2E5416AB006F4985 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = .gitignore; sourceTree = "<group>"; };
 		B344C16C2E5086CF00BF0086 /* GroupBuy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GroupBuy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B344C17A2E5086D000BF0086 /* GroupBuyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroupBuyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B344C1842E5086D000BF0086 /* GroupBuyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroupBuyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B30C43F02E5369A6006F4985 /* Exceptions for "GroupBuy" folder in "GroupBuy" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B344C16B2E5086CF00BF0086 /* GroupBuy */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B344C16E2E5086CF00BF0086 /* GroupBuy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B30C43F02E5369A6006F4985 /* Exceptions for "GroupBuy" folder in "GroupBuy" target */,
+			);
 			path = GroupBuy;
 			sourceTree = "<group>";
 		};
@@ -75,6 +94,8 @@
 		B344C1632E5086CF00BF0086 = {
 			isa = PBXGroup;
 			children = (
+				B30C43FA2E5416AB006F4985 /* .gitignore */,
+				B30C43EC2E52DC3E006F4985 /* GroupBuy.xctestplan */,
 				B344C16E2E5086CF00BF0086 /* GroupBuy */,
 				B344C17D2E5086D000BF0086 /* GroupBuyTests */,
 				B344C1872E5086D000BF0086 /* GroupBuyUITests */,
@@ -236,6 +257,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B30C43FB2E5416B0006F4985 /* .gitignore in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -394,6 +416,10 @@
 				DEVELOPMENT_TEAM = 5JRDXCTJ64;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GroupBuy/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置以搜尋附近的商店和提供更準確的地點推薦。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "此應用程式需要使用麥克風進行語音搜尋地點功能";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "此應用程式需要使用麥克風進行語音搜尋地點功能";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -404,7 +430,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
@@ -433,6 +459,10 @@
 				DEVELOPMENT_TEAM = 5JRDXCTJ64;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GroupBuy/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置以搜尋附近的商店和提供更準確的地點推薦。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "此應用程式需要使用麥克風進行語音搜尋地點功能";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "此應用程式需要使用麥克風進行語音搜尋地點功能";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -443,7 +473,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;

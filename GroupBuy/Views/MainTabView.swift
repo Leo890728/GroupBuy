@@ -174,10 +174,21 @@ struct StoreListView: View {
     var body: some View {
         NavigationView {
             List {
-                ForEach(Store.StoreCategory.allCases, id: \.self) { category in
+                // 自訂商店
+                let customStores = viewModel.stores.filter { $0.category == nil }
+                if !customStores.isEmpty {
+                    Section("自訂") {
+                        ForEach(customStores) { store in
+                            StoreRowView(viewModel: viewModel, store: store)
+                        }
+                    }
+                }
+                
+                // 按分類顯示商店
+                ForEach(Store.commonCategories, id: \.self) { category in
                     let storesInCategory = viewModel.stores.filter { $0.category == category }
                     if !storesInCategory.isEmpty {
-                        Section(category.rawValue) {
+                        Section(Store.categoryDisplayName(for: category)) {
                             ForEach(storesInCategory) { store in
                                 StoreRowView(viewModel: viewModel, store: store)
                             }
@@ -206,10 +217,13 @@ struct StoreRowView: View {
     
     var body: some View {
         HStack {
-            Image(systemName: store.imageURL)
-                .font(.title2)
-                .foregroundColor(.blue)
-                .frame(width: 40)
+            // Spotlight 風格圖示
+            Image(systemName: Store.spotlightIcon(for: store.category))
+                .foregroundColor(.white)
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 28, height: 28)
+                .background(Store.spotlightColor(for: store.category))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(store.name)

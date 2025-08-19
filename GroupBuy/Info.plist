@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>此應用程式需要使用您的位置資訊來搜尋附近的店家和設定地點</string>
+	<key>NSMicrophoneInjectionUsageDescription</key>
+	<string>此應用程式需要使用麥克風進行語音搜尋地點功能</string>
+</dict>
+</plist>
