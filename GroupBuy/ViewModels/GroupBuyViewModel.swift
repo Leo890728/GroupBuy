@@ -22,6 +22,12 @@ class GroupBuyViewModel: ObservableObject {
         stores.append(store)
     }
     
+    func updateStore(_ updatedStore: Store) {
+        if let index = stores.firstIndex(where: { $0.id == updatedStore.id }) {
+            stores[index] = updatedStore
+        }
+    }
+    
     func removeStore(atOffsets offsets: IndexSet) {
         stores.remove(atOffsets: offsets)
     }

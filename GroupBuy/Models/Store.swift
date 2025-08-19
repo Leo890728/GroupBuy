@@ -11,7 +11,7 @@ import MapKit
 import SwiftUI
 
 // 可編碼的 MKPointOfInterestCategory 包裝器
-struct CodableMKPointOfInterestCategory: Codable {
+struct CodableMKPointOfInterestCategory: Codable, Equatable {
     let category: MKPointOfInterestCategory?
     
     init(_ category: MKPointOfInterestCategory?) {
@@ -31,13 +31,18 @@ struct CodableMKPointOfInterestCategory: Codable {
         var container = encoder.singleValueContainer()
         try container.encode(category?.rawValue)
     }
+    
+    static func == (lhs: CodableMKPointOfInterestCategory, rhs: CodableMKPointOfInterestCategory) -> Bool {
+        return lhs.category?.rawValue == rhs.category?.rawValue
+    }
 }
 
-struct Store: Identifiable, Codable {
+struct Store: Identifiable, Codable, Equatable {
     var id = UUID()
     var name: String
     var address: String
     var phoneNumber: String
+    var website: String = ""
     var photos: [URL]?
     var imageURL: String
     private var _category: CodableMKPointOfInterestCategory
@@ -51,15 +56,16 @@ struct Store: Identifiable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, address, phoneNumber, photos, imageURL, description, isCustom, isPinned
+        case id, name, address, phoneNumber, website, photos, imageURL, description, isCustom, isPinned
         case _category = "category"
     }
     
-    init(id: UUID = UUID(), name: String, address: String, phoneNumber: String, photos: [URL]? = nil, imageURL: String, category: MKPointOfInterestCategory? = nil, description: String, isCustom: Bool = false, isPinned: Bool = false) {
+    init(id: UUID = UUID(), name: String, address: String, phoneNumber: String, website: String = "", photos: [URL]? = nil, imageURL: String, category: MKPointOfInterestCategory? = nil, description: String, isCustom: Bool = false, isPinned: Bool = false) {
         self.id = id
         self.name = name
         self.address = address
         self.phoneNumber = phoneNumber
+        self.website = website
         self.photos = photos
         self.imageURL = imageURL
         self._category = CodableMKPointOfInterestCategory(category)
@@ -222,10 +228,10 @@ extension Store {
 // 預設商店資料
 extension Store {
     static let sampleStores = [
-        Store(name: "清心福全", address: "台北市信義區", phoneNumber: "02-1234-5678", imageURL: "cup.and.saucer.fill", category: .cafe, description: "各式茶飲、果汁"),
-        Store(name: "50嵐", address: "台北市大安區", phoneNumber: "02-2345-6789", imageURL: "cup.and.saucer.fill", category: .cafe, description: "手搖飲料專賣店"),
-        Store(name: "池上便當", address: "台北市中正區", phoneNumber: "02-3456-7890", imageURL: "takeoutbag.and.cup.and.straw.fill", category: .restaurant, description: "傳統台式便當"),
-        Store(name: "三商巧福", address: "台北市南港區", phoneNumber: "02-4567-8901", imageURL: "takeoutbag.and.cup.and.straw.fill", category: .restaurant, description: "牛肉麵、便當"),
-        Store(name: "85度C", address: "台北市士林區", phoneNumber: "02-5678-9012", imageURL: "birthday.cake.fill", category: .bakery, description: "咖啡、蛋糕、麵包")
+        Store(name: "清心福全", address: "台北市信義區", phoneNumber: "02-1234-5678", website: "https://www.chingshin.tw", imageURL: "cup.and.saucer.fill", category: .cafe, description: "各式茶飲、果汁"),
+        Store(name: "50嵐", address: "台北市大安區", phoneNumber: "02-2345-6789", website: "https://www.50lan.com.tw", imageURL: "cup.and.saucer.fill", category: .cafe, description: "手搖飲料專賣店"),
+        Store(name: "池上便當", address: "台北市中正區", phoneNumber: "02-3456-7890", website: "", imageURL: "takeoutbag.and.cup.and.straw.fill", category: .restaurant, description: "傳統台式便當"),
+        Store(name: "三商巧福", address: "台北市南港區", phoneNumber: "02-4567-8901", website: "https://www.mercuries.com.tw", imageURL: "takeoutbag.and.cup.and.straw.fill", category: .restaurant, description: "牛肉麵、便當"),
+        Store(name: "85度C", address: "台北市士林區", phoneNumber: "02-5678-9012", website: "https://www.85cafe.com", imageURL: "birthday.cake.fill", category: .bakery, description: "咖啡、蛋糕、麵包", isCustom: true)
     ]
 }

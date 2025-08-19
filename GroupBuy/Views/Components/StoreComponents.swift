@@ -65,6 +65,15 @@ struct StoreCardView: View {
     let store: Store
     let isSelected: Bool
     let onTap: () -> Void
+    let viewModel: GroupBuyViewModel?
+    @State private var showingStoreDetail = false
+    
+    init(store: Store, isSelected: Bool, viewModel: GroupBuyViewModel? = nil, onTap: @escaping () -> Void) {
+        self.store = store
+        self.isSelected = isSelected
+        self.viewModel = viewModel
+        self.onTap = onTap
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -99,6 +108,20 @@ struct StoreCardView: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .contextMenu {
+            if let viewModel = viewModel {
+                Button(action: {
+                    showingStoreDetail = true
+                }) {
+                    Label("查看詳細資訊", systemImage: "info.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showingStoreDetail) {
+            if let viewModel = viewModel {
+                StoreDetailView(viewModel: viewModel, store: store)
+            }
+        }
     }
 }
 
@@ -107,17 +130,32 @@ struct StoreCardView: View {
 struct StoreRowView: View {
     @ObservedObject var viewModel: GroupBuyViewModel
     let store: Store
+    @State private var showingStoreDetail = false
+    
+    // 計算屬性來獲取最新的商店狀態
+    private var currentStore: Store {
+        viewModel.stores.first(where: { $0.id == store.id }) ?? store
+    }
     
     var body: some View {
-        HStack {
-            StoreIconView(store: store)
-            StoreInfoView(store: store)
-            Spacer()
-            if store.isCustom {
-                CustomStoreBadge()
+        Button(action: {
+            showingStoreDetail = true
+        }) {
+            HStack {
+                StoreIconView(store: store)
+                StoreInfoView(store: store)
+                Spacer()
+                if store.isCustom {
+                    CustomStoreBadge()
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 4)
+        .buttonStyle(PlainButtonStyle())
         .swipeActions(edge: .trailing) {
             if store.isCustom {
                 Button(role: .destructive) {
@@ -131,9 +169,12 @@ struct StoreRowView: View {
             Button {
                 viewModel.toggleStorePin(store)
             } label: {
-                Label(store.isPinned ? "取消釘選" : "釘選", systemImage: store.isPinned ? "pin.slash" : "pin")
+                Label(currentStore.isPinned ? "取消釘選" : "釘選", systemImage: currentStore.isPinned ? "pin.slash" : "pin")
             }
             .tint(.orange)
+        }
+        .sheet(isPresented: $showingStoreDetail) {
+            StoreDetailView(viewModel: viewModel, store: store)
         }
     }
 }
@@ -148,7 +189,7 @@ struct StoreRowView: View {
 }
 
 #Preview("Store Card") {
-    StoreCardView(store: Store.sampleStores[0], isSelected: true) {
+    StoreCardView(store: Store.sampleStores[0], isSelected: true, viewModel: GroupBuyViewModel()) {
         print("Store selected")
     }
 }

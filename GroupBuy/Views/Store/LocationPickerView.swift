@@ -13,6 +13,7 @@ struct LocationPickerView: View {
     @Binding var selectedAddress: String
     @Binding var selectedName: String
     @Binding var selectedPhoneNumber: String
+    @Binding var selectedWebsite: String
     @Binding var selectedCategory: MKPointOfInterestCategory?
     @Binding var isPresented: Bool
     
@@ -142,6 +143,9 @@ struct LocationPickerView: View {
         // 設定電話號碼
         selectedPhoneNumber = item.phoneNumber ?? ""
         
+        // 設定網站
+        selectedWebsite = item.url?.absoluteString ?? ""
+        
         // 設定分類
         selectedCategory = item.pointOfInterestCategory
         
@@ -154,6 +158,7 @@ struct LocationPickerView: View {
         print("  名稱: \(selectedName)")
         print("  地址: \(selectedAddress)")
         print("  電話: \(selectedPhoneNumber)")
+        print("  網站: \(selectedWebsite)")
         print("  分類: \(selectedCategory?.rawValue ?? "無")")
     }
 }
@@ -162,6 +167,7 @@ struct LocationPickerView: View {
         selectedAddress: .constant(""),
         selectedName: .constant(""),
         selectedPhoneNumber: .constant(""),
+        selectedWebsite: .constant(""),
         selectedCategory: .constant(nil),
         isPresented: .constant(true)
     )

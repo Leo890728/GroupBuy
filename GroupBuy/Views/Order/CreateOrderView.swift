@@ -25,7 +25,7 @@ struct CreateOrderView: View {
                 Section("選擇商店") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
                         ForEach(viewModel.stores) { store in
-                            StoreCardView(store: store, isSelected: selectedStore?.id == store.id) {
+                            StoreCardView(store: store, isSelected: selectedStore?.id == store.id, viewModel: viewModel) {
                                 selectedStore = store
                             }
                         }
