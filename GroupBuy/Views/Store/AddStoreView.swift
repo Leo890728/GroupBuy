@@ -38,6 +38,7 @@ struct AddStoreView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isAutoFilled = false
+    @State private var isLoading = false
     
     // MARK: - Initializer
     init(viewModel: GroupBuyViewModel, storeToEdit: Store? = nil) {
@@ -108,37 +109,44 @@ struct AddStoreView: View {
         .buttonStyle(PlainButtonStyle())
     }
     
-    // MARK: - Store Name Field
-    private var storeNameField: some View {
+    // MARK: - Text Field with Auto-fill Indicator
+    private func textFieldWithAutoFillIndicator(
+        placeholder: String,
+        text: Binding<String>,
+        keyboardType: UIKeyboardType = .default,
+        autocapitalization: TextInputAutocapitalization = .sentences,
+        autocorrection: Bool = true
+    ) -> some View {
         HStack {
-            TextField("商店名稱", text: $storeName)
-            if !storeName.isEmpty && isAutoFilled {
+            TextField(placeholder, text: text)
+                .keyboardType(keyboardType)
+                .textInputAutocapitalization(autocapitalization)
+                .autocorrectionDisabled(!autocorrection)
+            if !text.wrappedValue.isEmpty && isAutoFilled {
                 autoFilledIndicator
             }
         }
+    }
+    
+    // MARK: - Store Name Field
+    private var storeNameField: some View {
+        textFieldWithAutoFillIndicator(placeholder: "商店名稱", text: $storeName)
     }
     
     // MARK: - Phone Number Field
     private var phoneNumberField: some View {
-        HStack {
-            TextField("聯絡電話", text: $storePhoneNumber)
-            if !storePhoneNumber.isEmpty && isAutoFilled {
-                autoFilledIndicator
-            }
-        }
+        textFieldWithAutoFillIndicator(placeholder: "聯絡電話", text: $storePhoneNumber)
     }
     
     // MARK: - Website Field
     private var websiteField: some View {
-        HStack {
-            TextField("官方網站", text: $storeWebsite)
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            if !storeWebsite.isEmpty && isAutoFilled {
-                autoFilledIndicator
-            }
-        }
+        textFieldWithAutoFillIndicator(
+            placeholder: "官方網站", 
+            text: $storeWebsite,
+            keyboardType: .URL,
+            autocapitalization: .never,
+            autocorrection: false
+        )
     }
     
     // MARK: - Auto-filled Indicator
@@ -148,43 +156,39 @@ struct AddStoreView: View {
             .font(.caption)
     }
     
+    // MARK: - Category Icon View
+    private func categoryIconView(for category: MKPointOfInterestCategory?, size: CGFloat = 32, cornerRadius: CGFloat = 8) -> some View {
+        Image(systemName: Store.spotlightIcon(for: category))
+            .foregroundColor(.white)
+            .font(.system(size: size * 0.5, weight: .medium))
+            .frame(width: size, height: size)
+            .background(Store.spotlightColor(for: category))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+    }
+    
+    // MARK: - Category Menu Item
+    private func categoryMenuItem(for category: MKPointOfInterestCategory?) -> some View {
+        Button(action: {
+            selectedCategory = category
+        }) {
+            HStack(spacing: 12) {
+                categoryIconView(for: category)
+                Text(category == nil ? "自訂" : Store.categoryDisplayName(for: category!))
+                    .font(.body)
+                Spacer()
+            }
+        }
+    }
+    
     // MARK: - Category Picker
     private var categoryPicker: some View {
         Menu {
             // 自訂選項
-            Button(action: {
-                selectedCategory = nil
-            }) {
-                HStack(spacing: 12) {
-                    Image(systemName: Store.spotlightIcon(for: nil))
-                        .foregroundColor(.white)
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 32, height: 32)
-                        .background(Store.spotlightColor(for: nil))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    Text("自訂")
-                        .font(.body)
-                    Spacer()
-                }
-            }
+            categoryMenuItem(for: nil)
             
             // 其他分類選項
             ForEach(Store.commonCategories, id: \.self) { category in
-                Button(action: {
-                    selectedCategory = category
-                }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: Store.spotlightIcon(for: category))
-                            .foregroundColor(.white)
-                            .font(.system(size: 16, weight: .medium))
-                            .frame(width: 32, height: 32)
-                            .background(Store.spotlightColor(for: category))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        Text(Store.categoryDisplayName(for: category))
-                            .font(.body)
-                        Spacer()
-                    }
-                }
+                categoryMenuItem(for: category)
             }
         } label: {
             HStack {
@@ -192,25 +196,9 @@ struct AddStoreView: View {
                     .foregroundColor(.primary)
                 Spacer()
                 HStack(spacing: 8) {
-                    if let selectedCategory = selectedCategory {
-                        Image(systemName: Store.spotlightIcon(for: selectedCategory))
-                            .foregroundColor(.white)
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 24, height: 24)
-                            .background(Store.spotlightColor(for: selectedCategory))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                        Text(Store.categoryDisplayName(for: selectedCategory))
-                            .foregroundColor(.secondary)
-                    } else {
-                        Image(systemName: Store.spotlightIcon(for: nil))
-                            .foregroundColor(.white)
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 24, height: 24)
-                            .background(Store.spotlightColor(for: nil))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                        Text("自訂")
-                            .foregroundColor(.secondary)
-                    }
+                    categoryIconView(for: selectedCategory, size: 24, cornerRadius: 6)
+                    Text(selectedCategory == nil ? "自訂" : Store.categoryDisplayName(for: selectedCategory!))
+                        .foregroundColor(.secondary)
                     Image(systemName: "chevron.up.chevron.down")
                         .foregroundColor(.secondary)
                         .font(.caption2)
@@ -239,17 +227,23 @@ struct AddStoreView: View {
         HStack {
             Text("商店圖片")
             Spacer()
-            PhotosPicker(
-                selection: $storePhotoItems,
-                maxSelectionCount: max(0, maxStorePhotos - existingPhotos.count),
-                matching: .images,
-                photoLibrary: .shared()
-            ) {
-                Image(systemName: "plus.circle")
-            }
-            .disabled(storePhotos.count >= maxStorePhotos)
-            .onChange(of: storePhotoItems) { _, newItems in
-                loadSelectedPhotos(from: newItems)
+            
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(0.8)
+            } else {
+                PhotosPicker(
+                    selection: $storePhotoItems,
+                    maxSelectionCount: max(0, maxStorePhotos - existingPhotos.count),
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Image(systemName: "plus.circle")
+                }
+                .disabled(storePhotos.count >= maxStorePhotos)
+                .onChange(of: storePhotoItems) { _, newItems in
+                    loadSelectedPhotos(from: newItems)
+                }
             }
         }
     }
@@ -321,7 +315,7 @@ struct AddStoreView: View {
                         addCustomStore()
                     }
                 }
-                .disabled(storeName.isEmpty)
+                .disabled(storeName.isEmpty || isLoading)
             }
         }
     }
@@ -382,21 +376,36 @@ struct AddStoreView: View {
         }
     }
     
+    // MARK: - File Management
+    
+    /// 取得商店照片目錄路徑
+    private var storePhotosDirectory: URL? {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return documentsDirectory.appendingPathComponent("StorePhotos")
+    }
+    
+    /// 確保目錄存在
+    private func ensureDirectoryExists() throws {
+        guard let directory = storePhotosDirectory else {
+            throw FileError.directoryNotFound
+        }
+        
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+    }
+    
     /// 將 UIImage 陣列保存為本地文件並返回 URL 陣列
     private func savePhotosToLocalFiles(_ images: [UIImage]) -> [URL] {
         var photoURLs: [URL] = []
         
-        // 獲取應用程序的 Documents 目錄
-        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let storePhotosDirectory = storePhotosDirectory else {
+            print("無法獲取文檔目錄")
             return photoURLs
         }
         
-        // 創建商店照片目錄
-        let storePhotosDirectory = documentsDirectory.appendingPathComponent("StorePhotos")
-        
-        // 確保目錄存在
         do {
-            try FileManager.default.createDirectory(at: storePhotosDirectory, withIntermediateDirectories: true, attributes: nil)
+            try ensureDirectoryExists()
         } catch {
             print("創建目錄失敗: \(error.localizedDescription)")
             return photoURLs
@@ -404,7 +413,6 @@ struct AddStoreView: View {
         
         // 保存每張圖片
         for (index, image) in images.enumerated() {
-            // 生成唯一的文件名
             let fileName = "\(UUID().uuidString)_\(index).jpg"
             let fileURL = storePhotosDirectory.appendingPathComponent(fileName)
             
@@ -422,11 +430,43 @@ struct AddStoreView: View {
         return photoURLs
     }
     
+    /// 刪除舊的照片文件
+    private func deleteOldPhotoFiles(_ urls: [URL]) {
+        for url in urls {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                print("刪除舊照片失敗: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - File Error Types
+    private enum FileError: LocalizedError {
+        case directoryNotFound
+        
+        var errorDescription: String? {
+            switch self {
+            case .directoryNotFound:
+                return "無法找到文檔目錄"
+            }
+        }
+    }
+    
     /// 載入選擇的照片
     private func loadSelectedPhotos(from items: [PhotosPickerItem]) {
+        // 檢查是否會超過限制
+        let availableSlots = maxStorePhotos - existingPhotos.count
+        let itemsToProcess = Array(items.prefix(availableSlots))
+        
         Task {
             var images: [UIImage] = []
-            for item in items {
+            
+            await MainActor.run {
+                isLoading = true
+            }
+            
+            for item in itemsToProcess {
                 do {
                     if let data = try await item.loadTransferable(type: Data.self),
                        let uiImage = UIImage(data: data) {
@@ -434,22 +474,20 @@ struct AddStoreView: View {
                     }
                 } catch {
                     print("載入照片失敗: \(error.localizedDescription)")
+                    await MainActor.run {
+                        alertMessage = "載入照片失敗，請重試"
+                        showingAlert = true
+                    }
                 }
             }
 
             await MainActor.run {
-                // 更新新選擇的照片
+                isLoading = false
                 newPhotos = images
-                
-                // 合併現有照片和新照片
                 updateCombinedPhotos()
                 
-                // 確保不超過最大數量限制
-                if storePhotoItems.count > maxStorePhotos {
-                    storePhotoItems = Array(storePhotoItems.prefix(maxStorePhotos))
-                    // 重新載入以保持同步
-                    loadSelectedPhotos(from: storePhotoItems)
-                }
+                // 更新 PhotosPicker 選擇項目
+                storePhotoItems = itemsToProcess
             }
         }
     }
@@ -490,30 +528,26 @@ struct AddStoreView: View {
     
     /// 新增自訂商店
     private func addCustomStore() {
-        // 將照片保存為本地文件
-        let photoURLs = savePhotosToLocalFiles(storePhotos)
-        
-        let customStore = Store(
-            name: storeName,
-            address: storeAddress,
-            phoneNumber: storePhoneNumber,
-            website: storeWebsite,
-            photos: photoURLs.isEmpty ? nil : photoURLs,
-            imageURL: Store.spotlightIcon(for: selectedCategory),
-            category: selectedCategory,
-            description: storeDescription,
-            isCustom: true
-        )
-        
-        viewModel.addCustomStore(customStore)
-        
-        alertMessage = "商店新增成功！"
-        showingAlert = true
+        isLoading = true
         
         Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 秒
+            let photoURLs = savePhotosToLocalFiles(storePhotos)
+            
+            let customStore = Store(
+                name: storeName,
+                address: storeAddress,
+                phoneNumber: storePhoneNumber,
+                website: storeWebsite,
+                photos: photoURLs.isEmpty ? nil : photoURLs,
+                imageURL: Store.spotlightIcon(for: selectedCategory),
+                category: selectedCategory,
+                description: storeDescription,
+                isCustom: true
+            )
+            
             await MainActor.run {
-                dismiss()
+                viewModel.addCustomStore(customStore)
+                showSuccessAndDismiss(message: "商店新增成功！")
             }
         }
     }
@@ -522,48 +556,48 @@ struct AddStoreView: View {
     private func updateStore() {
         guard let originalStore = storeToEdit else { return }
         
-        // 刪除舊的照片文件（如果存在）
-        if let oldPhotoURLs = originalStore.photos {
-            deleteOldPhotoFiles(oldPhotoURLs)
+        isLoading = true
+        
+        Task {
+            // 刪除舊的照片文件（如果存在）
+            if let oldPhotoURLs = originalStore.photos {
+                deleteOldPhotoFiles(oldPhotoURLs)
+            }
+            
+            // 將新照片保存為本地文件
+            let photoURLs = savePhotosToLocalFiles(storePhotos)
+            
+            let updatedStore = Store(
+                id: originalStore.id,
+                name: storeName,
+                address: storeAddress,
+                phoneNumber: storePhoneNumber,
+                website: storeWebsite,
+                photos: photoURLs.isEmpty ? nil : photoURLs,
+                imageURL: Store.spotlightIcon(for: selectedCategory),
+                category: selectedCategory,
+                description: storeDescription,
+                isCustom: originalStore.isCustom,
+                isPinned: originalStore.isPinned
+            )
+            
+            await MainActor.run {
+                viewModel.updateStore(updatedStore)
+                showSuccessAndDismiss(message: "商店更新成功！")
+            }
         }
-        
-        // 將新照片保存為本地文件
-        let photoURLs = savePhotosToLocalFiles(storePhotos)
-        
-        let updatedStore = Store(
-            id: originalStore.id, // 保持原有 ID
-            name: storeName,
-            address: storeAddress,
-            phoneNumber: storePhoneNumber,
-            website: storeWebsite,
-            photos: photoURLs.isEmpty ? nil : photoURLs,
-            imageURL: Store.spotlightIcon(for: selectedCategory),
-            category: selectedCategory,
-            description: storeDescription,
-            isCustom: originalStore.isCustom,
-            isPinned: originalStore.isPinned // 保持原有釘選狀態
-        )
-        
-        viewModel.updateStore(updatedStore)
-        
-        alertMessage = "商店更新成功！"
+    }
+    
+    /// 顯示成功訊息並關閉視圖
+    private func showSuccessAndDismiss(message: String) {
+        isLoading = false
+        alertMessage = message
         showingAlert = true
         
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 秒
             await MainActor.run {
                 dismiss()
-            }
-        }
-    }
-    
-    /// 刪除舊的照片文件
-    private func deleteOldPhotoFiles(_ urls: [URL]) {
-        for url in urls {
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch {
-                print("刪除舊照片失敗: \(error.localizedDescription)")
             }
         }
     }
