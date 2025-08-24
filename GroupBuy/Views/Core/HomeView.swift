@@ -31,11 +31,11 @@ struct HomeView: View {
             }
             .navigationTitle("首頁")
             .navigationBarTitleDisplayMode(.large)
-                                .sheet(isPresented: $showingJoinOrder) {
+                .sheet(isPresented: $showingJoinOrder) {
                         JoinOrderListView(viewModel: viewModel)
                     }
                     .sheet(isPresented: $showingCreateOrder) {
-                        CreateOrderView(viewModel: viewModel)
+                        HostOrderView(viewModel: viewModel)
                     }
             .sheet(isPresented: $showingCustomStore) {
                 StoreFormView(viewModel: viewModel)
@@ -53,7 +53,7 @@ private struct AppHeaderView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.blue)
             
-            Text("團購小幫手")
+            Text("揪團ＧＯ")
                 .font(.largeTitle)
                 .fontWeight(.bold)
             
@@ -69,16 +69,16 @@ private struct StatisticSectionView: View {
     
     var body: some View {
         HStack(spacing: 40) {
-            StatisticView(
-                title: "進行中",
-                value: "\(viewModel.getActiveOrders().count)",
-                icon: "clock.fill"
-            )
-            StatisticView(
-                title: "商店數",
-                value: "\(viewModel.stores.count)",
-                icon: "storefront.fill"
-            )
+                StatisticView(
+                    title: "主持團購",
+                    value: "\(viewModel.getHostedOrders().count)",
+                    icon: "person.crop.square.fill"
+                )
+                StatisticView(
+                    title: "參加團購",
+                    value: "\(viewModel.getJoinedOrders().count)",
+                    icon: "person.2.square.stack.fill"
+                )
         }
         .padding(.bottom, 10)
     }

@@ -21,7 +21,13 @@ class SpeechRecognitionManager: ObservableObject {
     private var audioEngine = AVAudioEngine()
     private var speechAuthorizationStatus: SFSpeechRecognizerAuthorizationStatus = .notDetermined
     
+    // 自動停止計時器相關
+    private var autoStopTimer: Timer?
+    private let autoStopTimeInterval: TimeInterval = 10.0 // 10秒
+    private var lastRecognitionTime: Date = Date()
+    
     var onRecognitionComplete: ((String) -> Void)?
+    var onAutoStop: (() -> Void)?
     
     init() {
         setupSpeechRecognizer()
@@ -29,6 +35,9 @@ class SpeechRecognitionManager: ObservableObject {
     
     deinit {
         // 在 deinit 中，需要直接清理資源，不能調用 @MainActor 方法
+        autoStopTimer?.invalidate()
+        autoStopTimer = nil
+        
         if audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
@@ -106,6 +115,9 @@ class SpeechRecognitionManager: ObservableObject {
         
         startRecognitionTask()
         
+        // 啟動自動停止計時器
+        startAutoStopTimer()
+        
         isRecording = true
         print("開始語音輸入")
     }
@@ -181,6 +193,12 @@ class SpeechRecognitionManager: ObservableObject {
             if isRecording {
                 self.recognizedText = recognizedText
                 
+                // 有識別到語音內容時，重置計時器
+                if !recognizedText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    lastRecognitionTime = Date()
+                    resetAutoStopTimer()
+                }
+                
                 if result.isFinal {
                     stopRecording()
                     onRecognitionComplete?(recognizedText)
@@ -198,6 +216,9 @@ class SpeechRecognitionManager: ObservableObject {
         isRecording = false
         print("停止語音輸入")
         
+        // 停止自動停止計時器
+        stopAutoStopTimer()
+        
         if audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
@@ -214,6 +235,37 @@ class SpeechRecognitionManager: ObservableObject {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
             print("重設音訊會話失敗: \(error)")
+        }
+    }
+    
+    // MARK: - Auto Stop Timer Methods
+    
+    private func startAutoStopTimer() {
+        lastRecognitionTime = Date()
+        autoStopTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkAutoStop()
+            }
+        }
+    }
+    
+    private func stopAutoStopTimer() {
+        autoStopTimer?.invalidate()
+        autoStopTimer = nil
+    }
+    
+    private func resetAutoStopTimer() {
+        stopAutoStopTimer()
+        startAutoStopTimer()
+    }
+    
+    private func checkAutoStop() {
+        let timeSinceLastRecognition = Date().timeIntervalSince(lastRecognitionTime)
+        
+        if timeSinceLastRecognition >= autoStopTimeInterval && isRecording {
+            print("語音輸入自動停止：超過\(autoStopTimeInterval)秒沒有識別到語音")
+            // 通知 UI 需要觸發動畫
+            onAutoStop?()
         }
     }
 }
