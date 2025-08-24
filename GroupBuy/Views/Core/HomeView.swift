@@ -53,7 +53,7 @@ private struct AppHeaderView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.blue)
             
-            Text("揪團ＧＯ")
+            Text("揪團GO")
                 .font(.largeTitle)
                 .fontWeight(.bold)
             

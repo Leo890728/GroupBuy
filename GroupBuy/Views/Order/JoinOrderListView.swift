@@ -131,7 +131,7 @@ private struct OrderDetailSheet: View {
         let viewModel = GroupBuyViewModel()
         
         // 建立一些 User 作為示例
-        let userLeo = User.sampleUser // Leo 是當前用戶
+        let user = User.sampleUser // User 是當前用戶
         let userXiaoMing = User(name: "小明", email: "ming@example.com")
         let userXiaoHua = User(name: "小華", email: "hua@example.com")
         let userXiaoMei = User(name: "小美", email: "mei@example.com")
@@ -142,12 +142,12 @@ private struct OrderDetailSheet: View {
             GroupBuyOrder(
                 title: "🍱 午餐團購 - 池上便當",
                 store: Store.sampleStores[2],
-                organizer: userLeo, // Leo 是建立者
+                organizer: user, // user 是建立者
                 endTime: Date().addingTimeInterval(1800), // 30分鐘後
                 notes: "請在備註欄註明要不要辣椒和泡菜",
                 participants: [
                     Participant(
-                        user: userLeo, 
+                        user: user, 
                         items: [
                             OrderItem(name: "排骨便當", price: 85, notes: "要辣椒")
                         ], 
@@ -182,7 +182,7 @@ private struct OrderDetailSheet: View {
             GroupBuyOrder(
                 title: "☕️ 咖啡提神 - 星巴克",
                 store: Store.sampleStores[0],
-                organizer: userLeo, // Leo 也是這個的建立者
+                organizer: user, // user 也是這個的建立者
                 endTime: Date().addingTimeInterval(7200), // 2小時後
                 notes: "有需要加燕麥奶的請備註",
                 participants: [
@@ -195,7 +195,7 @@ private struct OrderDetailSheet: View {
                         notes: "要袋子",
                         joinedAt: Date()
                     )
-                ], // Leo 建立但未參加
+                ], // user 建立但未參加
                 isPublic: false,
                 status: .active,
                 createdAt: Date().addingTimeInterval(-900)

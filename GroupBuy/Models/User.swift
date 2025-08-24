@@ -38,7 +38,7 @@ struct UserPreferences: Codable {
 // MARK: - Sample Data
 extension User {
     static let sampleUser = User(
-        name: "Leo",
+        name: "User",
         email: "user@example.com",
         phone: "0912-345-678"
     )

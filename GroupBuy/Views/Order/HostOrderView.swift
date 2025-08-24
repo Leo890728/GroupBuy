@@ -35,6 +35,11 @@ struct HostOrderView: View {
             self._selectedStore = State(initialValue: store)
             self._orderTitle = State(initialValue: "\(store.name) 團購")
         }
+        
+        // 若有目前登入使用者，預設發起人姓名為該使用者的 name
+        if let currentName = viewModel.userManager.currentUser?.name {
+            self._organizerName = State(initialValue: currentName)
+        }
     }
     
     var body: some View {
@@ -79,7 +84,6 @@ struct HostOrderView: View {
                 
                 Section("團購資訊") {
                     TextField("團購標題", text: $orderTitle)
-                    TextField("發起人姓名", text: $organizerName)           
                     TextField("備註事項", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
