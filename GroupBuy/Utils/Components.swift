@@ -52,20 +52,27 @@ struct StatisticView: View {
     let title: String
     let value: String
     let icon: String
+    // optional tap action (e.g. open list with a specific filter)
+    var action: (() -> Void)? = nil
     
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.blue)
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        Button(action: { (action ?? {})() }) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(.blue)
+                    .frame(width: 40, height: 40)
+
+                Text(value)
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PlainButtonStyle())
     }
 }

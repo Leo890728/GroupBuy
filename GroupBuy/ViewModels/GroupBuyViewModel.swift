@@ -11,6 +11,8 @@ import SwiftUI
 // MARK: - Filter Options
 enum FilterOption: String, CaseIterable {
     case all = "全部"
+    case hosted = "我主辦的"
+    case joined = "我參加的"
     case endingSoon = "即將結束"
     case fewParticipants = "參與人數少"
     
@@ -18,6 +20,10 @@ enum FilterOption: String, CaseIterable {
         switch self {
         case .all:
             return "list.bullet"
+        case .hosted:
+            return "crown.fill"
+        case .joined:
+            return "person.2.badge.plus.fill"
         case .endingSoon:
             return "clock.fill"
         case .fewParticipants:
@@ -93,6 +99,7 @@ class GroupBuyViewModel: ObservableObject {
             endTime: endTime,
             notes: notes,
             participants: [],
+            isPublic: true,
             status: .active,
             createdAt: Date()
         )
@@ -167,10 +174,17 @@ class GroupBuyViewModel: ObservableObject {
         switch filter {
         case .all:
             break
+        case .joined:
+            let joinedIds = Set(getJoinedOrders().map { $0.id })
+            filtered = filtered.filter { joinedIds.contains($0.id) }
         case .endingSoon:
             filtered = filtered.filter { $0.endTime.timeIntervalSinceNow < 3600 } // 1小時內結束
         case .fewParticipants:
             filtered = filtered.filter { $0.participants.count <= 2 }
+        case .hosted:
+            // 使用目前使用者主持的團購清單作為過濾來源
+            let hostedIds = Set(getHostedOrders().map { $0.id })
+            filtered = filtered.filter { hostedIds.contains($0.id) }
         }
         
         // 按結束時間排序，即將結束的在前面
@@ -190,6 +204,43 @@ class GroupBuyViewModel: ObservableObject {
             order.participants.contains { $0.user.id == currentUser.id }
         }
     }
+
+    // MARK: - 退出團購
+    /// 從指定訂單移除特定使用者的參與紀錄
+    func leaveOrder(_ order: GroupBuyOrder, userId: UUID) {
+        if let index = activeOrders.firstIndex(where: { $0.id == order.id }) {
+            withAnimation {
+                activeOrders[index].participants.removeAll { $0.user.id == userId }
+            }
+        }
+    }
+
+    /// 由當前使用者退出指定訂單（若當前使用者為建立者則不執行）
+    func leaveOrderAsCurrentUser(_ order: GroupBuyOrder) {
+        guard let currentUser = userManager.currentUser else { return }
+        // 建立者不允許使用此方法退出（若需要轉移建立者權限，請另行實作）
+        if order.organizer.id == currentUser.id { return }
+
+        leaveOrder(order, userId: currentUser.id)
+    }
+
+    /// 更新一個訂單（依 id 找到並替換整個物件）
+    func updateOrder(_ updatedOrder: GroupBuyOrder) {
+        if let index = activeOrders.firstIndex(where: { $0.id == updatedOrder.id }) {
+            withAnimation {
+                activeOrders[index] = updatedOrder
+            }
+        }
+    }
+
+    /// 移除（取消）一個團購訂單
+    func removeOrder(_ order: GroupBuyOrder) {
+        if let index = activeOrders.firstIndex(where: { $0.id == order.id }) {
+            withAnimation {
+                activeOrders.remove(at: index)
+            }
+        }
+    }
     
     private func loadSampleData() {
         // 添加一些示例團購訂單
@@ -200,7 +251,7 @@ class GroupBuyViewModel: ObservableObject {
         let xiaoMei = User(name: "小美", email: "mei@example.com")
         let xiaoWang = User(name: "小王", email: "wang@example.com")
         
-        let sampleOrder1 = GroupBuyOrder(
+    let sampleOrder1 = GroupBuyOrder(
             title: "午餐團購 - 池上便當",
             store: stores[2], // 池上便當
             organizer: currentUser, // 使用實際 User 物件
@@ -225,11 +276,12 @@ class GroupBuyViewModel: ObservableObject {
                     joinedAt: Date().addingTimeInterval(-200)
                 )
             ],
+            isPublic: true,
             status: .active,
             createdAt: Date().addingTimeInterval(-600)
         )
         
-        let sampleOrder2 = GroupBuyOrder(
+    let sampleOrder2 = GroupBuyOrder(
             title: "下午茶時間 - 50嵐",
             store: stores[1], // 50嵐
             organizer: xiaoWang,
@@ -246,6 +298,7 @@ class GroupBuyViewModel: ObservableObject {
                     joinedAt: Date().addingTimeInterval(-100)
                 )
             ],
+            isPublic: false,
             status: .active,
             createdAt: Date().addingTimeInterval(-300)
         )

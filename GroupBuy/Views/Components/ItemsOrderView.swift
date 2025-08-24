@@ -27,7 +27,6 @@ struct ItemsOrderView: View {
                 } else {
                     ItemsListView(items: $items)
                     Divider()
-                        .padding(.horizontal, 4)
                     // 總計區域
                     TotalSummaryView(totalPrice: totalPrice, itemCount: items.count)
                 }
@@ -86,6 +85,29 @@ struct ItemsOrderView: View {
     }
 }
 
+// MARK: - Supporting Types
+
+// MARK: - Supporting Types
+
+// EditItemSheet 的包裝器，用於處理狀態更新
+private struct EditItemSheetWrapper: View {
+    let originalItem: OrderItem
+    @Binding var items: [OrderItem]
+    @Binding var editingItem: OrderItem?
+    
+    var body: some View {
+        if let index = items.firstIndex(where: { $0.id == originalItem.id }) {
+            EditItemSheet(item: $items[index])
+        } else {
+            // 如果項目不存在，關閉 sheet
+            EmptyView()
+                .onAppear {
+                    editingItem = nil
+                }
+        }
+    }
+}
+
 // MARK: - Sub Components
 
 private struct EmptyItemsView: View {
@@ -124,13 +146,6 @@ private struct EmptyItemsView: View {
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
-            
-            Button("新增第一個商品") {
-                onAddItem()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .fontWeight(.semibold)
         }
         .padding(.vertical, 50)
         .padding(.horizontal, 30)
@@ -150,8 +165,7 @@ private struct EmptyItemsView: View {
 
 private struct ItemsListView: View {
     @Binding var items: [OrderItem]
-    // keep track of the editing index instead of passing a copied item
-    @State private var editingIndex: Int?
+    @State private var editingItem: OrderItem?
 
     // Approximate single row height (adjust if your row design changes)
     private let approxRowHeight: CGFloat = 80
@@ -162,55 +176,36 @@ private struct ItemsListView: View {
         let listHeight = min(max(approxRowHeight * CGFloat(max(items.count, 1)), approxRowHeight), maxListHeight)
 
         List {
-            ForEach(items) { item in
-                if let index = items.firstIndex(where: { $0.id == item.id }) {
-                    ItemRowView(item: $items[index])
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button {
-                                // set the index so we can pass a direct binding to the array element
-                                editingIndex = index
-                            } label: {
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 14, weight: .regular))
-                            }
-                            .tint(.blue)
-                            .accessibilityLabel("編輯")
+            ForEach(Array(items.indices), id: \.self) { index in
+                ItemRowView(
+                    item: $items[index],
+                    onEdit: { 
+                        editingItem = items[index]
+                    },
+                    onDelete: {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            let idToRemove = items[index].id
+                            items.removeAll { $0.id == idToRemove }
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                    items.removeAll { $0.id == item.id }
-                                }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 14, weight: .regular))
-                            }
-                            .accessibilityLabel("刪除")
-                        }
-                }
+                    }
+                )
+                .id(items[index].id)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 8, leading: 6, bottom: 8, trailing: 6))
             }
         }
         .listStyle(.plain)
+        .listSectionSeparator(.hidden, edges: .top)
         .scrollContentBackground(.hidden)
         .frame(height: listHeight)
-        // present sheet using isPresented, and pass a direct binding to the array element
-        .sheet(isPresented: Binding(get: { editingIndex != nil }, set: { newValue in
-            if !newValue { editingIndex = nil }
-        })) {
-            if let idx = editingIndex, items.indices.contains(idx) {
-                EditItemSheet(item: $items[idx])
-                    .onDisappear {
-                        // clear index when sheet dismissed
-                        editingIndex = nil
-                    }
-            } else {
-                // defensive fallback: clear index
-                EmptyView()
-                    .onAppear { editingIndex = nil }
-            }
+        .sheet(item: $editingItem) { itemToEdit in
+            EditItemSheetWrapper(
+                originalItem: itemToEdit,
+                items: $items,
+                editingItem: $editingItem
+            )
+            .presentationDetents([.height(600), .large])
         }
     }
 }
@@ -219,29 +214,11 @@ private struct ItemsListView: View {
 
 private struct ItemRowView: View {
     @Binding var item: OrderItem
-    
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 16) {
-            // 商品圖示
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.accentColor.opacity(0.8),
-                                Color.accentColor.opacity(0.6)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 32, height: 32)
-                
-                    Image(systemName: "bag.fill")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-            }
-            
             // 商品資訊
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
@@ -296,14 +273,42 @@ private struct ItemRowView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            // 操作選單（放在 price 右側，避免遮蓋價格）
+            Menu {
+                if let onEdit = onEdit {
+                    Button {
+                        onEdit()
+                    } label: {
+                        Label("編輯", systemImage: "pencil")
+                    }
+                }
+
+                if let onDelete = onDelete {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label("刪除", systemImage: "trash")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .rotationEffect(.degrees(90))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(10)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("更多選項")
+            }
+            .padding(.leading, 6)
         }
     .padding(.horizontal, 12)
-    .frame(minHeight: 60)
+    .frame(maxWidth: .infinity, minHeight: 60)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(.systemBackground))
                 .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
         )
+    // Replace swipe actions with an explicit trailing Menu (...) button (menu placed inside HStack)
     }
 }
 
@@ -626,6 +631,33 @@ private struct InputField: View {
     ItemsOrderView(
         items: .constant([]),
         notes: .constant("")
+    )
+    .padding()
+}
+
+#Preview("Items Order View - With Items") {
+    ItemsOrderView(
+        items: .constant([
+            OrderItem(
+                name: "美式咖啡",
+                price: 120,
+                quantity: 2,
+                notes: "大杯，少糖"
+            ),
+            OrderItem(
+                name: "起司蛋糕",
+                price: 85,
+                quantity: 1,
+                notes: ""
+            ),
+            OrderItem(
+                name: "卡布奇諾",
+                price: 140,
+                quantity: 1,
+                notes: "溫熱，燕麥奶"
+            )
+        ]),
+        notes: .constant("請幫忙分開裝袋，謝謝！")
     )
     .padding()
 }

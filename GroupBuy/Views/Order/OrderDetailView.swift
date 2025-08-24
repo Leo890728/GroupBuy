@@ -19,6 +19,7 @@ struct OrderDetailView: View {
     @State private var didPrefill = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showingLeaveConfirmation = false
     
     // 初始化器，允許選擇狀態管理方式
     init(order: GroupBuyOrder, viewModel: GroupBuyViewModel, useLocalState: Bool = true) {
@@ -37,35 +38,11 @@ struct OrderDetailView: View {
     }
     
     var body: some View {
-    Form {
+        Form {
             Section("團購資訊") {
                 HStack {
-                    // 修復圖片顯示問題：使用 AsyncImage 而非 systemName
-                    if let url = URL(string: order.store.imageURL) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            case .failure(_):
-                                Image(systemName: "photo")
-                                    .foregroundColor(.blue)
-                            case .empty:
-                                ProgressView()
-                            @unknown default:
-                                Image(systemName: "photo")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .frame(width: 40, height: 40)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        Image(systemName: "photo")
-                            .foregroundColor(.blue)
-                            .frame(width: 40, height: 40)
-                    }
-                    
+                    StoreIconView(store: order.store)
+
                     VStack(alignment: .leading) {
                         Text(order.title)
                             .font(.headline)
@@ -75,90 +52,116 @@ struct OrderDetailView: View {
                     }
                 }
                     
-                    HStack {
-                        Text("發起人")
-                        Spacer()
-                        Text(order.organizer.name)
+                HStack {
+                    Text("發起人")
+                    Spacer()
+                    Text(order.organizer.name)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack {
+                    Text("結束時間")
+                    Spacer()
+                    Text(order.endTime, formatter: DateFormatter.shortDateTime)
+                        .foregroundColor(.secondary)
+                }
+                
+                if !order.notes.isEmpty {
+                    VStack(alignment: .leading) {
+                        Text("備註事項")
+                            .font(.subheadline)
+                        Text(order.notes)
+                            .font(.caption)
                             .foregroundColor(.secondary)
+                            .padding(.top, 2)
                     }
-                    
-                    HStack {
-                        Text("結束時間")
-                        Spacer()
-                        Text(order.endTime, formatter: DateFormatter.shortDateTime)
-                            .foregroundColor(.secondary)
+                }
+            }
+                
+            Section(header: VStack(alignment: .leading) {
+                let name = viewModel.userManager.currentUser?.name ?? ""
+                HStack {
+                    Text("\(name) 選購的商品")
+                    Spacer()
+                }
+            }) {
+                ItemsOrderView(
+                    items: currentOrderItems,
+                    notes: currentParticipantNotes
+                )
+                .listRowSeparator(.hidden)
+            }
+            
+            
+            Section("參與者名單") {
+                if order.participants.isEmpty {
+                    Text("目前還沒有人參加")
+                        .foregroundColor(.secondary)
+                        .italic()
+                } else {
+                    ForEach(order.participants) { participant in
+                        ParticipantRowView(participant: participant)
                     }
-                    
-                    if !order.notes.isEmpty {
-                        VStack(alignment: .leading) {
-                            Text("備註事項")
-                                .font(.subheadline)
-                            Text(order.notes)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 2)
+                }
+            }
+
+            // 最下面的操作區：退出團購（只對已參加且非建立者顯示）
+            if isAlreadyParticipant && (viewModel.userManager.currentUser?.id != order.organizer.id) {
+                Section {
+                    VStack(spacing: 8) {
+
+                        Button(role: .destructive) {
+                            showingLeaveConfirmation = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "rectangle.portrait.and.arrow.right.fill")
+                                Text("退出團購")
+                            }
+                            .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
                     }
-                }
-                
-                Section("我的訂單") {
-                    // 顯示當前使用者名稱（只讀）
-                    HStack {
-                        Text("參加者")
-                        Spacer()
-                        Text(viewModel.userManager.currentUser?.name ?? "未登入")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Section("選購商品") {
-                    ItemsOrderView(
-                        items: currentOrderItems,
-                        notes: currentParticipantNotes
-                    )
-                }
-                
-                Section("已參加的人") {
-                    if order.participants.isEmpty {
-                        Text("目前還沒有人參加")
-                            .foregroundColor(.secondary)
-                            .italic()
-                    } else {
-                        ForEach(order.participants) { participant in
-                            ParticipantRowView(participant: participant)
+                    .padding(.top, 8)
+                    .confirmationDialog("確認退出團購？", isPresented: $showingLeaveConfirmation, titleVisibility: .visible) {
+                        Button("取消", role: .cancel) { }
+                        Button("退出", role: .destructive) {
+                            // 執行離開並顯示提示
+                            viewModel.leaveOrderAsCurrentUser(order)
+                            alertMessage = "已成功退出團購"
+                            showingAlert = true
                         }
+                    } message: {
+                        Text("確定要從「\(order.title)」退出嗎？")
                     }
                 }
-            }
-            .navigationTitle("參加團購")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(isAlreadyParticipant ? "更新訂單" : "參加") {
-                        joinOrder()
-                    }
-                    .disabled(!canJoin)
-                }
-            }
-            .alert("提示", isPresented: $showingAlert) {
-                Button("確定", role: .cancel) {
-                    if alertMessage.contains("成功") {
-                        dismiss()
-                    }
-                }
-            } message: {
-                Text(alertMessage)
-            }
-            .onAppear {
-                prefillIfNeeded()
+                .listRowBackground(Color.clear)
+                .background(Color.clear)
             }
         }
+        .navigationTitle("參加團購")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(isAlreadyParticipant ? "更新訂單" : "參加") {
+                    joinOrder()
+                }
+                .disabled(!canJoin)
+            }
+        }
+        .alert("提示", isPresented: $showingAlert) {
+            Button("確定", role: .cancel) {
+                if alertMessage.contains("成功") {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage)
+        }
+        .onAppear {
+            prefillIfNeeded()
+        }
+    }
     
     private var canJoin: Bool {
         // 改進參加按鈕判斷：檢查商品是否有效且用戶已登入
@@ -319,8 +322,9 @@ private struct ParticipantRowView: View {
         participants: [
             Participant(user: participantUser, order: "珍珠奶茶 大杯", price: 65, notes: "半糖少冰", joinedAt: Date())
         ],
-        status: .active,
-        createdAt: Date()
+    isPublic: true,
+    status: .active,
+    createdAt: Date()
     )
     
     OrderDetailView(order: order, viewModel: GroupBuyViewModel())

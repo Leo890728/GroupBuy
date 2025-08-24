@@ -66,18 +66,25 @@ private struct AppHeaderView: View {
 
 private struct StatisticSectionView: View {
     @ObservedObject var viewModel: GroupBuyViewModel
-    
+    var onSelectFilter: ((FilterOption) -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 40) {
                 StatisticView(
                     title: "主持團購",
                     value: "\(viewModel.getHostedOrders().count)",
-                    icon: "person.crop.square.fill"
+                    icon: "crown.fill",
+                    action: {
+                        NotificationCenter.default.post(name: NSNotification.Name("OpenMyOrders"), object: "hosted")
+                    }
                 )
                 StatisticView(
                     title: "參加團購",
                     value: "\(viewModel.getJoinedOrders().count)",
-                    icon: "person.2.square.stack.fill"
+                    icon: "person.2.badge.plus.fill",
+                    action: {
+                        NotificationCenter.default.post(name: NSNotification.Name("OpenMyOrders"), object: "joined")
+                    }
                 )
         }
         .padding(.bottom, 10)

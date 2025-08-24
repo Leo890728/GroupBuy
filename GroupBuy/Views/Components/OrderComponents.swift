@@ -38,25 +38,65 @@ struct OrderStatusBadge: View {
 /// 訂單列表行組件，用於我的訂單列表
 struct OrderRowView: View {
     let order: GroupBuyOrder
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(order.title)
-                    .font(.headline)
-                Spacer()
-                OrderStatusBadge(status: order.status)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(order.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Spacer()
+                    OrderStatusBadge(status: order.status)
+                }
+                
+                Text(order.store.name)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Text("發起人: \(order.organizer.name)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
-            Text(order.store.name)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Text("發起人: \(order.organizer.name)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // 操作選單
+            if onEdit != nil || onDelete != nil {
+                Menu {
+                    if let onEdit = onEdit {
+                        Button {
+                            onEdit()
+                        } label: {
+                            Label("編輯", systemImage: "pencil")
+                        }
+                    }
+                    
+                    if let onDelete = onDelete {
+                        Button(role: .destructive) {
+                            onDelete()
+                        } label: {
+                            Label("刪除", systemImage: "trash")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .rotationEffect(.degrees(90))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .padding(10)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("更多選項")
+                }
+                .padding(.leading, 6)
+            }
         }
-        .padding(.vertical, 4)
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        // 增強陰影：較大 radius 與 y 偏移讓陰影更明顯
+        .shadow(color: Color.black.opacity(0.18), radius: 10, x: 0, y: 6)
+        .padding(.horizontal, 8)
     }
 }
 
@@ -267,6 +307,7 @@ struct InfoRow: View {
         endTime: Date().addingTimeInterval(3600),
         notes: "請準時取餐",
         participants: [],
+        isPublic: true,
         status: .active,
         createdAt: Date()
     ))
@@ -280,9 +321,262 @@ struct InfoRow: View {
         endTime: Date().addingTimeInterval(7200),
         notes: "請在備註欄填寫甜度和冰塊需求",
         participants: [],
+        isPublic: true,
         status: .active,
         createdAt: Date()
     )) {
         print("Join order tapped")
+    }
+}
+
+// MARK: - Edit Order Sheet
+/// 編輯團購訂單的 Sheet
+struct EditOrderSheet: View {
+    @Binding var order: GroupBuyOrder
+    /// 可選的儲存回呼，父層可接收更新後的訂單
+    var onSave: ((GroupBuyOrder) -> Void)? = nil
+    /// 可選的取消（移除）回呼，父層可傳入刪除函式
+    var onCancel: ((GroupBuyOrder) -> Void)? = nil
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var orderTitle = ""
+    @State private var orderNotes = ""
+    @State private var selectedStore: Store?
+    @State private var endTime = Date()
+    @State private var isPublic = true
+    @State private var status: GroupBuyOrder.OrderStatus = .active
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // 基本資訊 Card
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("基本資訊")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        OrderFormField(label: "團購標題", placeholder: "請輸入團購標題", text: $orderTitle)
+                        
+                        // 商店選擇 - 簡化為顯示目前商店名稱
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("商店")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            Text(selectedStore?.name ?? "未選擇商店")
+                                .font(.body)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                        }
+                        
+                        // 結束時間
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("結束時間")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
+                                .datePickerStyle(.compact)
+                        }
+                    }
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
+                    
+                    // 設定 Card
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("團購設定")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        // 狀態選擇
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("狀態")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            Picker("狀態", selection: $status) {
+                                ForEach(GroupBuyOrder.OrderStatus.allCases, id: \.self) { status in
+                                    Text(status.rawValue).tag(status)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                        
+                        // 可見性設定
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("公開團購")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                Text(isPublic ? "其他人可以看到並參加" : "僅限受邀人員參加")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $isPublic)
+                        }
+                    }
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
+                    
+                    // 備註 Card
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("備註")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        Text("團購說明或特殊要求")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        TextEditor(text: $orderNotes)
+                            .frame(minHeight: 80)
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color(.systemBackground)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray4), lineWidth: 1))
+                    }
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
+                }
+                .padding()
+            }
+            .navigationTitle("編輯團購")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                    .foregroundColor(.secondary)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("儲存") {
+                        saveOrder()
+                        // 在儲存後通知父層
+                        onSave?(order)
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(canSaveOrder ? .accentColor : .secondary)
+                    .disabled(!canSaveOrder)
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12) {
+                    Divider()
+                    Button(role: .destructive) {
+                        // 顯示確認對話框
+                        showingCancelConfirmation = true
+                    } label: {
+                        Text("取消舉辦團購")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemBackground))
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .onAppear {
+            loadCurrentOrder()
+        }
+    // 確認對話框
+    .background(cancelConfirmationDialog())
+    }
+    
+    private var canSaveOrder: Bool {
+        !orderTitle.isEmpty && selectedStore != nil
+    }
+
+    @State private var showingCancelConfirmation = false
+
+    
+    private func loadCurrentOrder() {
+        orderTitle = order.title
+        orderNotes = order.notes
+        selectedStore = order.store
+        endTime = order.endTime
+        isPublic = order.isPublic
+        status = order.status
+    }
+
+    // 取消舉辦的處理
+    private func cancelOrder() {
+        // 呼叫父層回呼
+        onCancel?(order)
+        dismiss()
+    }
+
+    // 在 View 的底部加入確認對話框
+    @ViewBuilder
+    private func cancelConfirmationDialog() -> some View {
+        EmptyView()
+            .confirmationDialog("確認取消團購？", isPresented: $showingCancelConfirmation, titleVisibility: .visible) {
+                Button("確認取消", role: .destructive) {
+                    cancelOrder()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("取消後此團購會被移除，參加者將無法再查看。此操作無法復原。")
+            }
+    }
+
+    
+    private func saveOrder() {
+        guard let store = selectedStore else { return }
+        
+        order.title = orderTitle
+        order.notes = orderNotes
+        order.store = store
+        order.endTime = endTime
+        order.isPublic = isPublic
+        order.status = status
+        
+        dismiss()
+    }
+}
+
+// MARK: - Order Form Field
+/// 團購表單輸入欄位組件
+private struct OrderFormField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+            
+            TextField(placeholder, text: $text)
+                .keyboardType(keyboardType)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(.systemBackground)))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray4), lineWidth: 1))
+        }
     }
 }

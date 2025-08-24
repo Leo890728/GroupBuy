@@ -21,6 +21,7 @@ struct HostOrderView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isAllDay = false
+    @State private var isPublic = true // 新增：公開或私人選項
     
     // 支援預選商店的初始化器
     let preselectedStore: Store?
@@ -39,6 +40,15 @@ struct HostOrderView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section("可見性") {
+                    // 公開或私人
+                    Picker("可見性", selection: $isPublic) {
+                        Text("公開").tag(true)
+                        Text("私人").tag(false)
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
+                    
                 Section("選擇商店") {
                     Button(action: {
                         showingStoreSheet = true
@@ -69,8 +79,7 @@ struct HostOrderView: View {
                 
                 Section("團購資訊") {
                     TextField("團購標題", text: $orderTitle)
-                    TextField("發起人姓名", text: $organizerName)
-                    
+                    TextField("發起人姓名", text: $organizerName)           
                     TextField("備註事項", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
@@ -194,6 +203,7 @@ struct HostOrderView: View {
             endTime: endDate, // 使用結束時間作為主要時間
             notes: notes,
             participants: [],
+            isPublic: isPublic,
             status: .active,
             createdAt: startDate // 使用開始時間作為建立時間
         )

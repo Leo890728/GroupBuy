@@ -15,6 +15,8 @@ struct GroupBuyOrder: Identifiable, Codable {
     var endTime: Date
     var notes: String
     var participants: [Participant]
+    // 是否公開：true = 公開, false = 私人（預設為公開）
+    var isPublic: Bool = true
     var status: OrderStatus
     var createdAt: Date
     
