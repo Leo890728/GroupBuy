@@ -10,12 +10,13 @@ import SwiftUI
 // MARK: - Enhanced Order Card View
 struct EnhancedOrderCardView: View {
     let order: GroupBuyOrder
-    let viewModel: GroupBuyViewModel
+    @ObservedObject var viewModel: GroupBuyViewModel
+    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // 標題和狀態
-            OrderHeaderView(order: order)
+            OrderHeaderView(order: order, now: viewModel.now)
             
             // 發起人和時間資訊
             OrderInfoView(order: order)
@@ -27,7 +28,17 @@ struct EnhancedOrderCardView: View {
                 }
                 Spacer()
                 // 參與指示器
-                ParticipationIndicator(order: order, viewModel: viewModel, userManager: viewModel.userManager)
+                ParticipationIndicator(
+                    order: order,
+                    viewModel: viewModel,
+                    userManager: viewModel.userManager
+                )
+            }
+        }
+        .onReceive(timer) { _ in
+            // 只有當使用者已參加此團購時才每分鐘更新 viewModel.now，讓所有卡片同步更新
+            if viewModel.userManager.isParticipatingInOrder(order) {
+                viewModel.now = Date()
             }
         }
         .padding()
@@ -44,24 +55,25 @@ struct EnhancedOrderCardView: View {
 // MARK: - Order Header View
 struct OrderHeaderView: View {
     let order: GroupBuyOrder
-    
+    let now: Date
+
     private var timeInfo: (remaining: String, color: Color) {
-        TimeHelper.formatTimeRemaining(from: order.endTime)
+        TimeHelper.formatTimeRemaining(from: order.endTime, now: now)
     }
-    
+
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 StoreIconView(store: order.store)
-                
+
                 Text(order.title)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                     .lineLimit(2)
-                
+
                 Spacer()
-                
+
                 TimeRemainingLabel(timeInfo: timeInfo)
             }
             
@@ -75,7 +87,7 @@ struct OrderHeaderView: View {
                 
                 ParticipantCountLabel(count: order.participants.count)
             }
-        }
+    }
     }
 }
 
@@ -119,6 +131,7 @@ struct ParticipationIndicator: View {
     let order: GroupBuyOrder
     let viewModel: GroupBuyViewModel
     @ObservedObject var userManager: UserManager
+    // onRefresh 已移除，使用外部計時器同步更新
     
     private var isOrganizer: Bool {
         guard let currentUser = userManager.currentUser else { return false }
@@ -134,7 +147,7 @@ struct ParticipationIndicator: View {
             if isParticipating {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
-                
+
                 Text(isOrganizer ? "已參加 (建立者)" : "已參加")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -142,7 +155,7 @@ struct ParticipationIndicator: View {
             } else {
                 Image(systemName: isOrganizer ? "crown.fill" : "arrow.right.circle.fill")
                     .foregroundColor(isOrganizer ? .orange : .accentColor)
-                
+
                 Text(isOrganizer ? "點擊參加 (建立者)" : "點擊參加")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -193,9 +206,9 @@ struct ParticipantCountLabel: View {
 
 // MARK: - Time Helper (移至獨立工具類)
 enum TimeHelper {
-    static func formatTimeRemaining(from endTime: Date) -> (remaining: String, color: Color) {
-        let timeInterval = endTime.timeIntervalSinceNow
-        
+    static func formatTimeRemaining(from endTime: Date, now: Date) -> (remaining: String, color: Color) {
+        let timeInterval = endTime.timeIntervalSince(now)
+
         let remaining: String
         if timeInterval <= 0 {
             remaining = "已結束"
@@ -204,7 +217,7 @@ enum TimeHelper {
             let minutes = Int((timeInterval.truncatingRemainder(dividingBy: 3600)) / 60)
             remaining = hours > 0 ? "\(hours)小時\(minutes)分鐘" : "\(minutes)分鐘"
         }
-        
+
         let color: Color
         if timeInterval <= 1800 { // 30分鐘內
             color = .red
@@ -213,7 +226,7 @@ enum TimeHelper {
         } else {
             color = .green
         }
-        
+
         return (remaining, color)
     }
 }

@@ -36,6 +36,11 @@ class GroupBuyViewModel: ObservableObject {
     @Published var stores: [Store] = Store.sampleStores
     @Published var activeOrders: [GroupBuyOrder] = []
     @Published var userOrders: [GroupBuyOrder] = []
+    // 共享的時間，用於讓多個 view 同步顯示剩餘時間並能被手動刷新
+    @Published var now: Date = Date()
+
+    // 定時器用於檢查訂單是否到期並更新狀態
+    private var expirationTimer: Timer?
     
     // User Manager
     @Published var userManager = UserManager()
@@ -47,6 +52,42 @@ class GroupBuyViewModel: ObservableObject {
     init() {
         // 添加一些測試數據
         loadSampleData()
+        startExpirationTimer()
+    }
+
+    deinit {
+        expirationTimer?.invalidate()
+        expirationTimer = nil
+    }
+
+    private func startExpirationTimer() {
+        // 每 30 秒檢查一次到期訂單（頻率可調）
+        expirationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.now = Date()
+                self.checkExpiredOrders()
+            }
+        }
+    }
+
+    /// 檢查所有 active 訂單，若 endTime <= now 則把狀態改為 .closed
+    func checkExpiredOrders() {
+        var didChange = false
+        for idx in activeOrders.indices {
+            if activeOrders[idx].status == .active && activeOrders[idx].endTime <= now {
+                withAnimation {
+                    activeOrders[idx].status = .closed
+                }
+                didChange = true
+            }
+        }
+
+        // 若有變更，可在此執行額外處理（例如通知或儲存），目前僅更新 published 陣列即可
+        if didChange {
+            // 觸發 Published 更新（陣列已被變更）
+            objectWillChange.send()
+        }
     }
     
     func addCustomStore(_ store: Store) {
@@ -153,7 +194,8 @@ class GroupBuyViewModel: ObservableObject {
     }
     
     func getActiveOrders() -> [GroupBuyOrder] {
-        return activeOrders.filter { $0.status == .active && $0.endTime > Date() }
+    // 使用 view model 的 now 以便與 UI 的時間同步
+    return activeOrders.filter { $0.status == .active && $0.endTime > now }
     }
     
     // MARK: - 過濾和搜尋優化
@@ -182,7 +224,7 @@ class GroupBuyViewModel: ObservableObject {
         case .fewParticipants:
             filtered = filtered.filter { $0.participants.count <= 2 }
         case .hosted:
-            // 使用目前使用者主持的團購清單作為過濾來源
+            // 使用目前使用者主辦的團購清單作為過濾來源
             let hostedIds = Set(getHostedOrders().map { $0.id })
             filtered = filtered.filter { hostedIds.contains($0.id) }
         }
@@ -191,7 +233,7 @@ class GroupBuyViewModel: ObservableObject {
         return filtered.sorted { $0.endTime < $1.endTime }
     }
     
-    // 取得使用者主持的團購訂單
+    // 取得使用者主辦的團購訂單
     func getHostedOrders() -> [GroupBuyOrder] {
         guard let currentUser = userManager.currentUser else { return [] }
         return activeOrders.filter { $0.organizer.id == currentUser.id }

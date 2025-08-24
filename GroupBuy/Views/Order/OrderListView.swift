@@ -74,7 +74,7 @@ struct OrderListView: View {
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.top, 20)
                 
                 // 內容區域（根據 picker 篩選顯示）
                 let showHosted = selectionScope == .hosted
@@ -162,6 +162,7 @@ private struct OrderSectionsList: View {
     let viewModel: GroupBuyViewModel
     let scope: SelectionScope
     @State private var editingOrder: GroupBuyOrder?
+    @State private var selectedOrder: GroupBuyOrder?
 
     var body: some View {
         List {
@@ -180,12 +181,7 @@ private struct OrderSectionsList: View {
                                 Button {
                                     editingOrder = order
                                 } label: {
-                                    HStack {
-                                        OrderRowView(order: order)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(.secondary)
-                                    }
+                                    OrderRowView(order: order)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
@@ -206,6 +202,7 @@ private struct OrderSectionsList: View {
                                     .clipShape(Capsule())
                             }
                         }
+                        .listRowSeparator(.hidden)
                     }
 
                     if !closed.isEmpty {
@@ -214,12 +211,7 @@ private struct OrderSectionsList: View {
                                 Button {
                                     editingOrder = order
                                 } label: {
-                                    HStack {
-                                        OrderRowView(order: order)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(.secondary)
-                                    }
+                                    OrderRowView(order: order)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
@@ -240,6 +232,7 @@ private struct OrderSectionsList: View {
                                     .clipShape(Capsule())
                             }
                         }
+                        .listRowSeparator(.hidden)
                     }
 
                     if !completed.isEmpty {
@@ -248,12 +241,7 @@ private struct OrderSectionsList: View {
                                 Button {
                                     editingOrder = order
                                 } label: {
-                                    HStack {
-                                        OrderRowView(order: order)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(.secondary)
-                                    }
+                                    OrderRowView(order: order)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
@@ -274,6 +262,7 @@ private struct OrderSectionsList: View {
                                     .clipShape(Capsule())
                             }
                         }
+                        .listRowSeparator(.hidden)
                     }
                 }
             }
@@ -288,9 +277,12 @@ private struct OrderSectionsList: View {
                 if !activeJ.isEmpty {
                     Section {
                         ForEach(activeJ) { order in
-                            NavigationLink(destination: OrderDetailView(order: order, viewModel: viewModel)) {
+                            Button {
+                                selectedOrder = order
+                            } label: {
                                 OrderRowView(order: order)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     } header: {
                         HStack {
@@ -309,14 +301,18 @@ private struct OrderSectionsList: View {
                                 .clipShape(Capsule())
                         }
                     }
+                    .listRowSeparator(.hidden)
                 }
 
                 if !closedJ.isEmpty {
                     Section {
                         ForEach(closedJ) { order in
-                            NavigationLink(destination: OrderDetailView(order: order, viewModel: viewModel)) {
+                            Button {
+                                selectedOrder = order
+                            } label: {
                                 OrderRowView(order: order)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     } header: {
                         HStack {
@@ -335,14 +331,18 @@ private struct OrderSectionsList: View {
                                 .clipShape(Capsule())
                         }
                     }
+                    .listRowSeparator(.hidden)
                 }
 
                 if !completedJ.isEmpty {
                     Section {
                         ForEach(completedJ) { order in
-                            NavigationLink(destination: OrderDetailView(order: order, viewModel: viewModel)) {
+                            Button {
+                                selectedOrder = order
+                            } label: {
                                 OrderRowView(order: order)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     } header: {
                         HStack {
@@ -361,6 +361,7 @@ private struct OrderSectionsList: View {
                                 .clipShape(Capsule())
                         }
                     }
+                    .listRowSeparator(.hidden)
                 }
             }
         }
@@ -372,6 +373,19 @@ private struct OrderSectionsList: View {
                 viewModel: viewModel
             )
             .presentationDetents([.height(600), .large])
+        }
+        .sheet(item: $selectedOrder) { order in
+            NavigationView {
+                OrderDetailView(order: order, viewModel: viewModel)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("關閉") {
+                                selectedOrder = nil
+                            }
+                        }
+                    }
+            }
         }
     }
 }

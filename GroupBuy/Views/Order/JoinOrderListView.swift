@@ -100,6 +100,8 @@ struct JoinOrderListView: View {
         
         // 這裡可以加入實際的資料重新載入邏輯
         // await viewModel.refreshActiveOrders()
+        // 手動觸發全域時間更新，讓時間標籤立即刷新
+        viewModel.now = Date()
     }
 }
 

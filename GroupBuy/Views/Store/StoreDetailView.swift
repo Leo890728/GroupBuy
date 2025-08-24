@@ -37,7 +37,7 @@ struct StoreDetailView: View {
                     // 照片網格區塊
                     StorePhotosGrid(store: store)
                     
-                    Divider()
+                    Spacer()
                     
                     // 操作按鈕區塊
                     StoreActionButtons(store: store, viewModel: viewModel, showingActionSheet: $showingActionSheet)
@@ -593,25 +593,6 @@ struct StoreActionButtons: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .disabled(isCreatingOrder)
-            
-            // 次要操作按鈕
-            HStack(spacing: 12) {
-                // 分享按鈕
-                Button(action: {
-                    shareStore()
-                }) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("分享")
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.blue)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-            }
         }
     }
     
@@ -686,51 +667,60 @@ struct StoreActionSheet: View {
 }
 
 // MARK: - Store Map View
-/// 商店地圖視圖
+/// 商店地圖視圖（支援地址 geocode；地址失敗則以商店名稱做 MKLocalSearch）
 struct StoreMapView: View {
     let store: Store
     @Environment(\.dismiss) private var dismiss
+
     @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654), // 台北市預設座標
+        center: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654), // fallback
         span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
     )
-    
+    @State private var coordinate: CLLocationCoordinate2D? = nil
+    @State private var isLoading = false
+    @State private var geocodeError: String? = nil
+
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
-                // 地圖區域
-                Map {
-                    Annotation(store.name, coordinate: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654)) {
+                if isLoading {
+                    ProgressView("定位中...")
+                        .frame(height: 200)
+                        .frame(maxWidth: .infinity)
+                }
+
+                Map(coordinateRegion: $region, annotationItems: annotationItems()) { item in
+                    MapAnnotation(coordinate: item.coordinate) {
                         VStack {
                             Image(systemName: store.imageURL)
-                                .font(.title)
+                                .font(.title2)
                                 .foregroundColor(.white)
-                                .frame(width: 30, height: 30)
+                                .frame(width: 36, height: 36)
                                 .background(Store.spotlightColor(for: store.category))
                                 .clipShape(Circle())
-                            
+
                             Text(store.name)
-                                .font(.caption)
+                                .font(.caption2)
+                                .fontWeight(.bold)
                                 .padding(4)
-                                .background(Color.white)
+                                .background(Color.clear)
                                 .cornerRadius(4)
-                                .shadow(radius: 2)
+                                .shadow(radius: 1)
                         }
                     }
                 }
-                .frame(height: 300)
+                .frame(height: 450)
                 .cornerRadius(12)
-                
-                // 商店基本資訊
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(store.name)
                         .font(.title2)
                         .fontWeight(.bold)
-                    
+
                     Text(store.address)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    
+
                     if !store.phoneNumber.isEmpty {
                         Text(store.phoneNumber)
                             .font(.subheadline)
@@ -741,8 +731,7 @@ struct StoreMapView: View {
                 .padding()
                 .background(Color(.systemBackground))
                 .cornerRadius(12)
-                
-                // 操作按鈕
+
                 HStack(spacing: 12) {
                     Button("導航") {
                         openInMaps()
@@ -752,7 +741,7 @@ struct StoreMapView: View {
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(8)
-                    
+
                     Button("致電") {
                         if let url = URL(string: "tel:\(store.phoneNumber)") {
                             UIApplication.shared.open(url)
@@ -765,7 +754,14 @@ struct StoreMapView: View {
                     .cornerRadius(8)
                 }
                 .padding(.horizontal)
-                
+
+                if let error = geocodeError {
+                    Text("無法解析地址：\(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.top, 4)
+                }
+
                 Spacer()
             }
             .padding()
@@ -773,19 +769,100 @@ struct StoreMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        dismiss()
-                    }
+                    Button("完成") { dismiss() }
+                }
+            }
+            .onAppear { geocodeAddressIfNeeded() }
+        }
+    }
+
+    private func annotationItems() -> [AnnotationItem] {
+        if let coord = coordinate {
+            return [AnnotationItem(id: store.id, coordinate: coord)]
+        }
+        return []
+    }
+
+    private func geocodeAddressIfNeeded() {
+        guard !store.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            geocodeError = "沒有地址"
+            return
+        }
+
+        isLoading = true
+        geocodeError = nil
+
+        let geocoder = CLGeocoder()
+        geocoder.geocodeAddressString(store.address) { placemarks, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let err = error {
+                    // 地址解析失敗，改以店名搜尋
+                    geocodeError = err.localizedDescription
+                    searchByName()
+                    return
+                }
+                if let loc = placemarks?.first?.location {
+                    coordinate = loc.coordinate
+                    region = MKCoordinateRegion(
+                        center: loc.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    )
+                } else {
+                    geocodeError = "找不到座標，改以店名搜尋"
+                    searchByName()
                 }
             }
         }
     }
-    
+
+    private func searchByName() {
+        guard !store.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        isLoading = true
+        geocodeError = nil
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = store.name
+        // optional: limit search to current region
+        request.region = region
+
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let err = error {
+                    geocodeError = err.localizedDescription
+                    return
+                }
+                if let mapItem = response?.mapItems.first, let loc = mapItem.placemark.location {
+                    coordinate = loc.coordinate
+                    region = MKCoordinateRegion(center: loc.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                } else {
+                    geocodeError = "找不到相符的地點"
+                }
+            }
+        }
+    }
+
     private func openInMaps() {
-        let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654))
+        let coordToOpen = coordinate ?? CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654)
+        let placemark = MKPlacemark(coordinate: coordToOpen)
         let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = store.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+    }
+
+    private struct AnnotationItem: Identifiable {
+        let id: UUID
+        let coordinate: CLLocationCoordinate2D
+
+        init(id: UUID = UUID(), coordinate: CLLocationCoordinate2D) {
+            self.id = id
+            self.coordinate = coordinate
+        }
     }
 }
 

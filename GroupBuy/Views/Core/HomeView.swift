@@ -71,7 +71,7 @@ private struct StatisticSectionView: View {
     var body: some View {
         HStack(spacing: 40) {
                 StatisticView(
-                    title: "主持團購",
+                    title: "主辦團購",
                     value: "\(viewModel.getHostedOrders().count)",
                     icon: "crown.fill",
                     action: {

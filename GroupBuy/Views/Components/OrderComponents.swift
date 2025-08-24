@@ -454,6 +454,20 @@ struct EditOrderSheet: View {
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
+
+                    VStack(spacing: 12) {
+                        Button(role: .destructive) {
+                            showingCancelConfirmation = true
+                        } label: {
+                            Text("取消舉辦團購")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemBackground))
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+
                 }
                 .padding()
             }
@@ -479,22 +493,6 @@ struct EditOrderSheet: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .safeAreaInset(edge: .bottom) {
-                VStack(spacing: 12) {
-                    Divider()
-                    Button(role: .destructive) {
-                        // 顯示確認對話框
-                        showingCancelConfirmation = true
-                    } label: {
-                        Text("取消舉辦團購")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.systemBackground))
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)

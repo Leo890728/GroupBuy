@@ -105,24 +105,21 @@ struct OrderDetailView: View {
                 }
             }
 
-            // 最下面的操作區：退出團購（只對已參加且非建立者顯示）
-            if isAlreadyParticipant && (viewModel.userManager.currentUser?.id != order.organizer.id) {
+            // 最下面的操作區：退出團購（只對已參加且非建立者顯示，訂單完成後不顯示退出按鈕）
+            if isAlreadyParticipant && (viewModel.userManager.currentUser?.id != order.organizer.id) && order.status != .completed {
                 Section {
-                    VStack(spacing: 8) {
-
+                    VStack(spacing: 12) {
                         Button(role: .destructive) {
                             showingLeaveConfirmation = true
                         } label: {
-                            HStack {
-                                Image(systemName: "rectangle.portrait.and.arrow.right.fill")
-                                Text("退出團購")
-                            }
-                            .frame(maxWidth: .infinity)
+                            Text("退出團購")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemBackground))
                         }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
                     }
-                    .padding(.top, 8)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                     .confirmationDialog("確認退出團購？", isPresented: $showingLeaveConfirmation, titleVisibility: .visible) {
                         Button("取消", role: .cancel) { }
                         Button("退出", role: .destructive) {
