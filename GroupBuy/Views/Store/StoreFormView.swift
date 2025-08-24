@@ -44,8 +44,6 @@ struct StoreFormView: View {
         self.storeToEdit = storeToEdit
     }
     
-
-    
     var body: some View {
         NavigationView {
             Form {

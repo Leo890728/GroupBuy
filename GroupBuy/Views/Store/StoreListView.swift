@@ -9,10 +9,29 @@ import SwiftUI
 
 struct StoreListView: View {
     @ObservedObject var viewModel: GroupBuyViewModel
+    @Binding var selectedStore: Store?
+    @Environment(\.dismiss) private var dismiss
     @State private var showingCustomStore = false
     @State private var searchText = ""
     @StateObject private var speechManager = SpeechRecognitionManager()
     @FocusState private var isSearchFieldFocused: Bool
+    
+    // 用於區分模式的標記
+    private let isSelectionMode: Bool
+    
+    // 便利初始化器，用於非選擇模式
+    init(viewModel: GroupBuyViewModel) {
+        self.viewModel = viewModel
+        self._selectedStore = .constant(nil)
+        self.isSelectionMode = false
+    }
+    
+    // 完整初始化器，用於選擇模式
+    init(viewModel: GroupBuyViewModel, selectedStore: Binding<Store?>) {
+        self.viewModel = viewModel
+        self._selectedStore = selectedStore
+        self.isSelectionMode = true
+    }
     
     var body: some View {
         NavigationView {
@@ -35,7 +54,11 @@ struct StoreListView: View {
                 StoreListContent(
                     viewModel: viewModel,
                     searchText: searchText,
-                    isSearchFieldFocused: $isSearchFieldFocused
+                    isSearchFieldFocused: $isSearchFieldFocused,
+                    onSelect: isSelectionMode ? { store in
+                        selectedStore = store
+                        dismiss()
+                    } : nil
                 )
             }
             .navigationTitle("商店列表")
@@ -64,22 +87,30 @@ private struct StoreListContent: View {
     @ObservedObject var viewModel: GroupBuyViewModel
     let searchText: String
     @FocusState.Binding var isSearchFieldFocused: Bool
-    
-    // 使用計算屬性簡化商店過濾邏輯
+    var onSelect: ((Store) -> Void)?
+
     private var storeGroups: StoreGroups {
         StoreGroups(stores: viewModel.stores, searchText: searchText)
     }
-    
+
     var body: some View {
         List {
             // 釘選的商店
             if !storeGroups.pinned.isEmpty {
-                PinnedStoresSection(stores: storeGroups.pinned, viewModel: viewModel)
+                PinnedStoresSection(
+                    stores: storeGroups.pinned, 
+                    viewModel: viewModel, 
+                    onSelect: onSelect
+                )
             }
-            
+
             // 按分類顯示的商店
-            CategoryStoresSection(storeGroups: storeGroups, viewModel: viewModel)
-            
+            CategoryStoresSection(
+                storeGroups: storeGroups, 
+                viewModel: viewModel, 
+                onSelect: onSelect
+            )
+
             // 空狀態
             if storeGroups.isEmpty {
                 EmptyStoresView(searchText: searchText)
@@ -92,12 +123,22 @@ private struct StoreListContent: View {
 private struct PinnedStoresSection: View {
     let stores: [Store]
     @ObservedObject var viewModel: GroupBuyViewModel
-    
+    var onSelect: ((Store) -> Void)?
+
     var body: some View {
         Section {
             ForEach(stores) { store in
-                StoreRowView(viewModel: viewModel, store: store)
+                if let onSelect = onSelect {
+                    StoreRowView(
+                        viewModel: viewModel, 
+                        store: store, 
+                        onSelect: onSelect
+                    )
                     .id("\(store.id)-pinned")
+                } else {
+                    StoreRowView(viewModel: viewModel, store: store)
+                        .id("\(store.id)-pinned")
+                }
             }
         } header: {
             HStack {
@@ -113,26 +154,45 @@ private struct PinnedStoresSection: View {
 private struct CategoryStoresSection: View {
     let storeGroups: StoreGroups
     @ObservedObject var viewModel: GroupBuyViewModel
-    
+    var onSelect: ((Store) -> Void)?
+
     var body: some View {
         // 自訂商店
         if !storeGroups.customStores.isEmpty {
             Section("自訂") {
                 ForEach(storeGroups.customStores) { store in
-                    StoreRowView(viewModel: viewModel, store: store)
+                    if let onSelect = onSelect {
+                        StoreRowView(
+                            viewModel: viewModel, 
+                            store: store, 
+                            onSelect: onSelect
+                        )
                         .id("\(store.id)-unpinned")
+                    } else {
+                        StoreRowView(viewModel: viewModel, store: store)
+                            .id("\(store.id)-unpinned")
+                    }
                 }
             }
         }
-        
+
         // 分類商店
         ForEach(Store.commonCategories, id: \.self) { category in
             let categoryStores = storeGroups.storesByCategory[category.rawValue] ?? []
             if !categoryStores.isEmpty {
                 Section(Store.categoryDisplayName(for: category)) {
                     ForEach(categoryStores) { store in
-                        StoreRowView(viewModel: viewModel, store: store)
+                        if let onSelect = onSelect {
+                            StoreRowView(
+                                viewModel: viewModel, 
+                                store: store, 
+                                onSelect: onSelect
+                            )
                             .id("\(store.id)-unpinned")
+                        } else {
+                            StoreRowView(viewModel: viewModel, store: store)
+                                .id("\(store.id)-unpinned")
+                        }
                     }
                 }
             }
@@ -190,5 +250,11 @@ private struct StoreGroups {
 // MARK: - Store Row組件已移至 StoreComponents.swift
 
 #Preview {
-    StoreListView(viewModel: GroupBuyViewModel())
+    Group {
+        // 瀏覽模式
+        StoreListView(viewModel: GroupBuyViewModel())
+        
+        // 選擇模式
+        StoreListView(viewModel: GroupBuyViewModel(), selectedStore: .constant(nil))
+    }
 }

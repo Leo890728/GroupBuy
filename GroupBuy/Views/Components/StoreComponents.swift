@@ -66,7 +66,7 @@ struct StoreCardView: View {
     let isSelected: Bool
     let onTap: () -> Void
     let viewModel: GroupBuyViewModel?
-    @State private var showingStoreDetail = false
+    @State private var selectedStoreForDetail: Store?
     
     init(store: Store, isSelected: Bool, viewModel: GroupBuyViewModel? = nil, onTap: @escaping () -> Void) {
         self.store = store
@@ -111,15 +111,17 @@ struct StoreCardView: View {
         .contextMenu {
             if let viewModel = viewModel {
                 Button(action: {
-                    showingStoreDetail = true
+                    selectedStoreForDetail = store
                 }) {
                     Label("查看詳細資訊", systemImage: "info.circle")
                 }
             }
         }
-        .sheet(isPresented: $showingStoreDetail) {
+        .sheet(item: $selectedStoreForDetail) { store in
             if let viewModel = viewModel {
-                StoreDetailView(viewModel: viewModel, store: store)
+                NavigationView {
+                    StoreDetailView(viewModel: viewModel, store: store)
+                }
             }
         }
     }
@@ -130,30 +132,39 @@ struct StoreCardView: View {
 struct StoreRowView: View {
     @ObservedObject var viewModel: GroupBuyViewModel
     let store: Store
-    @State private var showingStoreDetail = false
+    var onSelect: ((Store) -> Void)?
+    @State private var selectedStoreForDetail: Store?
     
     // 計算屬性來獲取最新的商店狀態
     private var currentStore: Store {
         viewModel.stores.first(where: { $0.id == store.id }) ?? store
     }
     
+    // 便利初始化器，用於瀏覽模式（顯示商店詳細資訊）
+    init(viewModel: GroupBuyViewModel, store: Store) {
+        self.viewModel = viewModel
+        self.store = store
+        self.onSelect = nil
+    }
+    
+    // 完整初始化器，用於選擇模式（回傳選擇的商店）
+    init(viewModel: GroupBuyViewModel, store: Store, onSelect: @escaping (Store) -> Void) {
+        self.viewModel = viewModel
+        self.store = store
+        self.onSelect = onSelect
+    }
+    
     var body: some View {
         Button(action: {
-            showingStoreDetail = true
-        }) {
-            HStack {
-                StoreIconView(store: store)
-                StoreInfoView(store: store)
-                Spacer()
-                if store.isCustom {
-                    CustomStoreBadge()
-                }
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            if let onSelect = onSelect {
+                // 選擇模式：回傳選擇的商店
+                onSelect(store)
+            } else {
+                // 瀏覽模式：設置要顯示詳細資訊的商店
+                selectedStoreForDetail = store
             }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+        }) {
+            storeRowContent
         }
         .buttonStyle(PlainButtonStyle())
         .swipeActions(edge: .trailing) {
@@ -173,9 +184,27 @@ struct StoreRowView: View {
             }
             .tint(.orange)
         }
-        .sheet(isPresented: $showingStoreDetail) {
-            StoreDetailView(viewModel: viewModel, store: store)
+        .sheet(item: $selectedStoreForDetail) { store in
+            NavigationView {
+                StoreDetailView(viewModel: viewModel, store: store)
+            }
         }
+    }
+    
+    private var storeRowContent: some View {
+        HStack {
+            StoreIconView(store: store)
+            StoreInfoView(store: store)
+            Spacer()
+            if store.isCustom {
+                CustomStoreBadge()
+            }
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 

@@ -96,11 +96,11 @@ struct StoreLayoutDemo: View {
 struct FeaturedStoreCard: View {
     let store: Store
     @ObservedObject var viewModel: GroupBuyViewModel
-    @State private var showingStoreDetail = false
+    @State private var selectedStoreForDetail: Store?
     
     var body: some View {
         Button(action: {
-            showingStoreDetail = true
+            selectedStoreForDetail = store
         }) {
             VStack(alignment: .leading, spacing: 12) {
                 // 商店圖示區域
@@ -156,8 +156,10 @@ struct FeaturedStoreCard: View {
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showingStoreDetail) {
-            StoreDetailView(viewModel: viewModel, store: store)
+        .sheet(item: $selectedStoreForDetail) { store in
+            NavigationView {
+                StoreDetailView(viewModel: viewModel, store: store)
+            }
         }
     }
 }
