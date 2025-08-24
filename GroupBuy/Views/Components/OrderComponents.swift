@@ -163,7 +163,6 @@ struct OrderCardView: View {
                         .font(.headline)
                     
                     HStack {
-                        // 修復圖片顯示問題：使用 AsyncImage 替代 Label with systemName
                         if let url = URL(string: order.store.imageURL) {
                             AsyncImage(url: url) { phase in
                                 switch phase {
@@ -345,11 +344,60 @@ struct EditOrderSheet: View {
     @State private var endTime = Date()
     @State private var isPublic = true
     @State private var status: GroupBuyOrder.OrderStatus = .active
+    @State private var showingEarlyEndAlert = false
+    @State private var showingCannotReopenAlert = false
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
+
+                    // 設定 Card
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("團購設定")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        // 狀態選擇
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("狀態")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            Picker("狀態", selection: $status) {
+                                ForEach(GroupBuyOrder.OrderStatus.allCases, id: \.self) { s in
+                                    Text(s.rawValue)
+                                        .tag(s)
+                                        .selectionDisabled(s == .active && (order.status == .closed || order.status == .completed))
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                        
+                        // 可見性設定
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("公開團購")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                Text(isPublic ? "其他人可以看到並參加" : "僅限受邀人員參加")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $isPublic)
+                        }
+                    }
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
+
                     // 基本資訊 Card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("基本資訊")
@@ -388,51 +436,7 @@ struct EditOrderSheet: View {
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
-                    
-                    // 設定 Card
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("團購設定")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        // 狀態選擇
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("狀態")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                            
-                            Picker("狀態", selection: $status) {
-                                ForEach(GroupBuyOrder.OrderStatus.allCases, id: \.self) { status in
-                                    Text(status.rawValue).tag(status)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                        
-                        // 可見性設定
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("公開團購")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.primary)
-                                
-                                Text(isPublic ? "其他人可以看到並參加" : "僅限受邀人員參加")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Toggle("", isOn: $isPublic)
-                        }
-                    }
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 1))
-                    
+                                    
                     // 備註 Card
                     VStack(alignment: .leading, spacing: 8) {
                         Text("備註")
@@ -483,9 +487,7 @@ struct EditOrderSheet: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("儲存") {
-                        saveOrder()
-                        // 在儲存後通知父層
-                        onSave?(order)
+                        attemptSave()
                     }
                     .fontWeight(.semibold)
                     .foregroundColor(canSaveOrder ? .accentColor : .secondary)
@@ -501,6 +503,7 @@ struct EditOrderSheet: View {
         }
     // 確認對話框
     .background(cancelConfirmationDialog())
+    .background(earlyEndAlert())
     }
     
     private var canSaveOrder: Bool {
@@ -526,6 +529,24 @@ struct EditOrderSheet: View {
         dismiss()
     }
 
+    // 嘗試儲存：若為提早結束情況則顯示確認，否則直接儲存
+    private func attemptSave() {
+        // 只有當使用者將狀態改為 closed/completed，且結束時間仍在未來，且原本狀態不同時，才提示
+        let now = Date()
+        if (status == .closed || status == .completed) && endTime > now && order.status != status {
+            showingEarlyEndAlert = true
+            return
+        }
+
+        performSave()
+    }
+
+    // 執行儲存並通知父層
+    private func performSave() {
+        saveOrder()
+        onSave?(order)
+    }
+
     // 在 View 的底部加入確認對話框
     @ViewBuilder
     private func cancelConfirmationDialog() -> some View {
@@ -537,6 +558,41 @@ struct EditOrderSheet: View {
                 Button("取消", role: .cancel) {}
             } message: {
                 Text("取消後此團購會被移除，參加者將無法再查看。此操作無法復原。")
+            }
+    }
+
+    // 提早結束/完成確認（當使用者把狀態改為已結束或已完成但還未到結束時間）
+    @ViewBuilder
+    private func earlyEndAlert() -> some View {
+        EmptyView()
+            .alert(isPresented: $showingEarlyEndAlert) {
+                // 使用動態標題與訊息，根據目前選擇的 status
+                let title: String = (status == .completed) ? "確認提早完成團購？" : "確認提早結束團購？"
+                let message: String = (status == .completed)
+                    ? "您將把狀態設定為「已完成」，但未到結束時間，這會提早完成團購並標記為已完成。確定要儲存嗎？"
+                    : "您將把狀態設定為「\(status.rawValue)」，但未到結束時間，這會提早結束團購。確定要儲存嗎？"
+
+                return Alert(
+                    title: Text(title),
+                    message: Text(message),
+                    primaryButton: .destructive(Text("確認儲存")) {
+                        performSave()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+    }
+
+    // 當嘗試把已結束的團購切回進行中時顯示的警告
+    @ViewBuilder
+    private func cannotReopenAlert() -> some View {
+        EmptyView()
+            .alert(isPresented: $showingCannotReopenAlert) {
+                Alert(
+                    title: Text("無法還原為進行中"),
+                    message: Text("此團購已設定為已結束，無法切回「進行中」。若要重新開始，請建立新的團購或聯絡系統管理員。"),
+                    dismissButton: .default(Text("我知道了"))
+                )
             }
     }
 
