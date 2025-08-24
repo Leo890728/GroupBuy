@@ -12,33 +12,73 @@ struct OrderDetailView: View {
     @ObservedObject var viewModel: GroupBuyViewModel
     @Environment(\.dismiss) private var dismiss
     
-    @State private var participantName = ""
-    @State private var participantOrder = ""
-    @State private var participantPrice = ""
+    // 可以選擇使用本地狀態或 ViewModel 狀態
+    private let useLocalState: Bool
+    @State private var orderItems: [OrderItem] = []
     @State private var participantNotes = ""
+    @State private var didPrefill = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
+    // 初始化器，允許選擇狀態管理方式
+    init(order: GroupBuyOrder, viewModel: GroupBuyViewModel, useLocalState: Bool = true) {
+        self.order = order
+        self.viewModel = viewModel
+        self.useLocalState = useLocalState
+    }
+    
+    // 計算屬性：根據 useLocalState 決定使用哪個狀態
+    private var currentOrderItems: Binding<[OrderItem]> {
+        useLocalState ? $orderItems : $viewModel.currentOrderItems
+    }
+    
+    private var currentParticipantNotes: Binding<String> {
+        useLocalState ? $participantNotes : $viewModel.currentParticipantNotes
+    }
+    
     var body: some View {
-        NavigationView {
-            Form {
-                Section("團購資訊") {
-                    HStack {
-                        Image(systemName: order.store.imageURL)
-                            .foregroundColor(.blue)
-                        VStack(alignment: .leading) {
-                            Text(order.title)
-                                .font(.headline)
-                            Text(order.store.name)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+    Form {
+            Section("團購資訊") {
+                HStack {
+                    // 修復圖片顯示問題：使用 AsyncImage 而非 systemName
+                    if let url = URL(string: order.store.imageURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                            case .failure(_):
+                                Image(systemName: "photo")
+                                    .foregroundColor(.blue)
+                            case .empty:
+                                ProgressView()
+                            @unknown default:
+                                Image(systemName: "photo")
+                                    .foregroundColor(.blue)
+                            }
                         }
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        Image(systemName: "photo")
+                            .foregroundColor(.blue)
+                            .frame(width: 40, height: 40)
                     }
+                    
+                    VStack(alignment: .leading) {
+                        Text(order.title)
+                            .font(.headline)
+                        Text(order.store.name)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
                     
                     HStack {
                         Text("發起人")
                         Spacer()
-                        Text(order.organizer)
+                        Text(order.organizer.name)
                             .foregroundColor(.secondary)
                     }
                     
@@ -62,12 +102,20 @@ struct OrderDetailView: View {
                 }
                 
                 Section("我的訂單") {
-                    TextField("您的姓名", text: $participantName)
-                    TextField("訂購內容", text: $participantOrder, axis: .vertical)
-                        .lineLimit(2...4)
-                    TextField("金額", text: $participantPrice)
-                        .keyboardType(.decimalPad)
-                    TextField("備註", text: $participantNotes)
+                    // 顯示當前使用者名稱（只讀）
+                    HStack {
+                        Text("參加者")
+                        Spacer()
+                        Text(viewModel.userManager.currentUser?.name ?? "未登入")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Section("選購商品") {
+                    ItemsOrderView(
+                        items: currentOrderItems,
+                        notes: currentParticipantNotes
+                    )
                 }
                 
                 Section("已參加的人") {
@@ -77,26 +125,7 @@ struct OrderDetailView: View {
                             .italic()
                     } else {
                         ForEach(order.participants) { participant in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(participant.name)
-                                        .font(.headline)
-                                    Spacer()
-                                    Text("$\(Int(participant.price))")
-                                        .font(.subheadline)
-                                        .foregroundColor(.green)
-                                }
-                                
-                                Text(participant.order)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                
-                                if !participant.notes.isEmpty {
-                                    Text(participant.notes)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
+                            ParticipantRowView(participant: participant)
                         }
                     }
                 }
@@ -111,7 +140,7 @@ struct OrderDetailView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("參加") {
+                    Button(isAlreadyParticipant ? "更新訂單" : "參加") {
                         joinOrder()
                     }
                     .disabled(!canJoin)
@@ -126,43 +155,169 @@ struct OrderDetailView: View {
             } message: {
                 Text(alertMessage)
             }
+            .onAppear {
+                prefillIfNeeded()
+            }
         }
-    }
     
     private var canJoin: Bool {
-        !participantName.isEmpty && !participantOrder.isEmpty && !participantPrice.isEmpty
+        // 改進參加按鈕判斷：檢查商品是否有效且用戶已登入
+        guard viewModel.userManager.currentUser != nil else { return false }
+        
+        let items = useLocalState ? orderItems : viewModel.currentOrderItems
+        guard !items.isEmpty else { return false }
+        
+        // 檢查每個商品數量 > 0
+        guard items.allSatisfy({ $0.quantity > 0 }) else { return false }
+        
+        // 檢查是否超過團購結束時間
+        guard order.endTime > Date() else { return false }
+        
+        return true
+    }
+
+    // 判斷目前使用者是否已參加此團購
+    private var isAlreadyParticipant: Bool {
+        guard let currentUser = viewModel.userManager.currentUser else { return false }
+        return order.participants.contains { $0.user.id == currentUser.id }
     }
     
     private func joinOrder() {
-        guard let price = Double(participantPrice) else {
-            alertMessage = "請輸入正確的金額"
+        let items = useLocalState ? orderItems : viewModel.currentOrderItems
+        let notes = useLocalState ? participantNotes : viewModel.currentParticipantNotes
+        
+        guard !items.isEmpty else {
+            alertMessage = "請至少新增一個商品"
             showingAlert = true
             return
         }
         
-        let participant = Participant(
-            name: participantName,
-            order: participantOrder,
-            price: price,
-            notes: participantNotes,
-            joinedAt: Date()
-        )
+        guard items.allSatisfy({ $0.quantity > 0 }) else {
+            alertMessage = "所有商品數量必須大於 0"
+            showingAlert = true
+            return
+        }
         
-        viewModel.joinOrder(order, participant: participant)
-        alertMessage = "成功參加團購！"
+        guard order.endTime > Date() else {
+            alertMessage = "團購已結束，無法參加"
+            showingAlert = true
+            return
+        }
+        
+        // 使用多商品 API 參加團購
+        viewModel.joinOrderAsCurrentUserWithItems(order, items: items, notes: notes)
+        
+    alertMessage = isAlreadyParticipant ? "成功更新訂單！" : "成功參加團購！"
         showingAlert = true
+        
+        // 清空表單
+        clearOrderData()
+    }
+
+    /// 若使用者已參加該團購，將其先前的 items/notes 預填到表單以供編輯
+    private func prefillIfNeeded() {
+        guard !didPrefill else { return }
+        didPrefill = true
+
+        guard let currentUser = viewModel.userManager.currentUser else { return }
+
+        if let existing = order.participants.first(where: { $0.user.id == currentUser.id }) {
+            if useLocalState {
+                orderItems = existing.items
+                participantNotes = existing.notes
+            } else {
+                viewModel.setCurrentOrderState(items: existing.items, notes: existing.notes)
+            }
+        }
+    }
+    
+    private func clearOrderData() {
+        if useLocalState {
+            orderItems.removeAll()
+            participantNotes = ""
+        } else {
+            viewModel.clearCurrentOrderState()
+        }
+    }
+}
+
+// MARK: - Participant Row View
+private struct ParticipantRowView: View {
+    let participant: Participant
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 參與者姓名和總價
+            HStack {
+                Text(participant.name)
+                    .font(.headline)
+                Spacer()
+                Text("$\(Int(participant.totalPrice))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.green)
+            }
+            
+            // 統一的商品顯示邏輯 - 移除單商品/多商品的判斷
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(participant.items) { item in
+                    HStack {
+                        Text("• \(item.name)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        if item.quantity > 1 {
+                            Text("x\(item.quantity)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(.systemGray5))
+                                .cornerRadius(4)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("$\(Int(item.totalPrice))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if !item.notes.isEmpty {
+                        Text("  \(item.notes)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .italic()
+                    }
+                }
+            }
+            
+            // 整體備註
+            if !participant.notes.isEmpty {
+                Text(participant.notes)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(6)
+            }
+        }
     }
 }
 
 #Preview {
+    let sampleUser = User(name: "小明", email: "ming@example.com")
+    let participantUser = User(name: "小華", email: "hua@example.com")
+    
     let order = GroupBuyOrder(
         title: "下午茶團購",
         store: Store.sampleStores[0],
-        organizer: "小明",
+        organizer: sampleUser,
         endTime: Date().addingTimeInterval(3600),
         notes: "請在備註欄填寫甜度和冰塊",
         participants: [
-            Participant(name: "小華", order: "珍珠奶茶 大杯", price: 65, notes: "半糖少冰", joinedAt: Date())
+            Participant(user: participantUser, order: "珍珠奶茶 大杯", price: 65, notes: "半糖少冰", joinedAt: Date())
         ],
         status: .active,
         createdAt: Date()

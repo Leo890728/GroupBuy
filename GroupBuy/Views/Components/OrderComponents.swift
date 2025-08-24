@@ -52,11 +52,60 @@ struct OrderRowView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            Text("發起人: \(order.organizer)")
+            Text("發起人: \(order.organizer.name)")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Order Summary Card
+/// 訂單統計卡片組件
+struct OrderSummaryCard: View {
+    let orderCount: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "cart.badge.plus")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
+                
+                Text("進行中的團購")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Text("\(orderCount)")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.accentColor)
+            }
+            
+            if orderCount > 0 {
+                Text("點擊訂單查看詳情並參加團購")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.accentColor.opacity(0.1),
+                    Color.accentColor.opacity(0.05)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
@@ -73,9 +122,37 @@ struct OrderCardView: View {
                     Text(order.title)
                         .font(.headline)
                     
-                    Label(order.store.name, systemImage: order.store.imageURL)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        // 修復圖片顯示問題：使用 AsyncImage 替代 Label with systemName
+                        if let url = URL(string: order.store.imageURL) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                case .failure(_):
+                                    Image(systemName: "photo")
+                                        .foregroundColor(.secondary)
+                                case .empty:
+                                    ProgressView()
+                                        .scaleEffect(0.5)
+                                @unknown default:
+                                    Image(systemName: "photo")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: "photo")
+                                .foregroundColor(.secondary)
+                                .frame(width: 16, height: 16)
+                        }
+                        
+                        Text(order.store.name)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
@@ -92,7 +169,7 @@ struct OrderCardView: View {
             HStack {
                 Label("發起人", systemImage: "person.fill")
                     .font(.caption)
-                Text(order.organizer)
+                Text(order.organizer.name)
                     .font(.caption)
                 
                 Spacer()
@@ -135,7 +212,7 @@ struct OrderInfoSection: View {
             
             VStack(alignment: .leading, spacing: 8) {
                 InfoRow(icon: "storefront.fill", title: "商店", content: order.store.name)
-                InfoRow(icon: "person.fill", title: "發起人", content: order.organizer)
+                InfoRow(icon: "person.fill", title: "發起人", content: order.organizer.name)
                 InfoRow(icon: "clock.fill", title: "結束時間", content: order.endTime.formatted(date: .abbreviated, time: .shortened))
                 InfoRow(icon: "person.2.fill", title: "參與人數", content: "\(order.participants.count) 人")
                 
@@ -186,7 +263,7 @@ struct InfoRow: View {
     OrderRowView(order: GroupBuyOrder(
         title: "午餐團購",
         store: Store.sampleStores[0],
-        organizer: "小明",
+        organizer: User(name: "小明", email: "ming@example.com"),
         endTime: Date().addingTimeInterval(3600),
         notes: "請準時取餐",
         participants: [],
@@ -199,7 +276,7 @@ struct InfoRow: View {
     OrderCardView(order: GroupBuyOrder(
         title: "下午茶團購",
         store: Store.sampleStores[0],
-        organizer: "小華",
+        organizer: User(name: "小華", email: "hua@example.com"),
         endTime: Date().addingTimeInterval(7200),
         notes: "請在備註欄填寫甜度和冰塊需求",
         participants: [],
